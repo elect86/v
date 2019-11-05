@@ -1,6 +1,7 @@
 package cmon
 
-import org.lwjgl.PointerBuffer
+import classes.ApplicationInfo
+import classes.InstanceCreateInfo
 import org.lwjgl.glfw.GLFWKeyCallback
 import org.lwjgl.glfw.GLFWWindowSizeCallback
 import org.lwjgl.system.MemoryUtil
@@ -18,18 +19,18 @@ import org.lwjgl.vulkan.EXTDebugReport.*
 import org.lwjgl.vulkan.KHRSurface.*
 import org.lwjgl.vulkan.KHRSwapchain.*
 import org.lwjgl.vulkan.VK10.*
+import uno.glfw.glfw
 
 fun main() {
-    if (!glfwInit()) {
-        throw RuntimeException("Failed to initialize GLFW")
-    }
-    if (!glfwVulkanSupported()) {
+
+    glfw.init()
+    if (!glfw.vulkanSupported)
         throw AssertionError("GLFW failed to find the Vulkan loader")
-    }
 
     /* Look for instance extensions */
-    val requiredExtensions = glfwGetRequiredInstanceExtensions()
-        ?: throw AssertionError("Failed to find list of required Vulkan extensions")
+    val requiredExtensions = glfw.requiredInstanceExtensions
+    if (requiredExtensions.isEmpty())
+        throw AssertionError("Failed to find list of required Vulkan extensions")
 
     // Create the Vulkan instance
     val instance = Triangle.createInstance(requiredExtensions)
@@ -288,27 +289,11 @@ object Triangle {
      *
      * @return the VkInstance handle
      */
-    fun createInstance(requiredExtensions: PointerBuffer): VkInstance {
-        val appInfo = VkApplicationInfo.calloc()
-            .sType(VK_STRUCTURE_TYPE_APPLICATION_INFO)
-            .apiVersion(VK_API_VERSION_1_0)
-        val ppEnabledExtensionNames = memAllocPointer(requiredExtensions.remaining() + 1)
-        ppEnabledExtensionNames.put(requiredExtensions)
-        val VK_EXT_DEBUG_REPORT_EXTENSION = memUTF8(VK_EXT_DEBUG_REPORT_EXTENSION_NAME)
-        ppEnabledExtensionNames.put(VK_EXT_DEBUG_REPORT_EXTENSION)
-        ppEnabledExtensionNames.flip()
-        val ppEnabledLayerNames = memAllocPointer(layers.size)
-        var i = 0
-        while (validation && i < layers.size) {
-            ppEnabledLayerNames.put(layers[i])
-            i++
-        }
-        ppEnabledLayerNames.flip()
-        val pCreateInfo = VkInstanceCreateInfo.calloc()
-            .sType(VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO)
-            .pApplicationInfo(appInfo)
-            .ppEnabledExtensionNames(ppEnabledExtensionNames)
-            .ppEnabledLayerNames(ppEnabledLayerNames)
+    fun createInstance(requiredExtensions: ArrayList<String>): VkInstance {
+        val appInfo = ApplicationInfo(apiVersion = VK_API_VERSION_1_0)
+        requiredExtensions += VK_EXT_DEBUG_REPORT_EXTENSION_NAME
+        val enabledLayerNames = listOf("VK_LAYER_LUNARG_standard_validation")
+        val pCreateInfo = InstanceCreateInfo(appInfo, requiredExtensions, enabledLayerNames)
         val pInstance = memAllocPointer(1)
         val err = vkCreateInstance(pCreateInfo, null, pInstance)
         val instance = pInstance.get(0)
@@ -318,7 +303,7 @@ object Triangle {
         }
         val ret = VkInstance(instance, pCreateInfo)
         pCreateInfo.free()
-        memFree(ppEnabledLayerNames)
+        memFree(enabledLayerNames)
         memFree(VK_EXT_DEBUG_REPORT_EXTENSION)
         memFree(ppEnabledExtensionNames)
         memFree(appInfo.pApplicationName())
