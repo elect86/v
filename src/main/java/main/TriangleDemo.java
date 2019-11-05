@@ -1,4 +1,4 @@
-package wtf;
+package main;
 
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.glfw.GLFWKeyCallback;
@@ -12,7 +12,7 @@ import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 
-import static wtf.VKUtil.*;
+import static main.VKUtil.*;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.glfw.GLFWVulkan.*;
 import static org.lwjgl.system.MemoryUtil.*;

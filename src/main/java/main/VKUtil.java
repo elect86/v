@@ -1,4 +1,4 @@
-package wtf;
+package main;
 
 import org.lwjgl.BufferUtils;
 import org.lwjgl.system.MemoryStack;

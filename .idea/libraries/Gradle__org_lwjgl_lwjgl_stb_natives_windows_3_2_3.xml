@@ -1,7 +1,7 @@
 <component name="libraryTable">
-  <library name="Gradle: org.lwjgl:lwjgl-stb:natives-linux:3.2.3">
+  <library name="Gradle: org.lwjgl:lwjgl-stb:natives-windows:3.2.3">
     <CLASSES>
-      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-stb/3.2.3/189950254d81e9214b39cc656163541bf1accbba/lwjgl-stb-3.2.3-natives-linux.jar!/" />
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-stb/3.2.3/817b21ec286f0ba3dcedb56a3bd275e6a9345be9/lwjgl-stb-3.2.3-natives-windows.jar!/" />
     </CLASSES>
     <JAVADOC />
     <SOURCES>

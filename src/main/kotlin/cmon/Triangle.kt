@@ -10,7 +10,7 @@ import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.IntBuffer
 
-import wtf.VKUtil.*
+import main.VKUtil.*
 import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.glfw.GLFWVulkan.*
 import org.lwjgl.system.MemoryUtil.*
@@ -49,7 +49,11 @@ fun main() {
         }
     }
     val debugCallbackHandle =
-        Triangle.setupDebugging(instance, VK_DEBUG_REPORT_ERROR_BIT_EXT or VK_DEBUG_REPORT_WARNING_BIT_EXT, debugCallback)
+        Triangle.setupDebugging(
+            instance,
+            VK_DEBUG_REPORT_ERROR_BIT_EXT or VK_DEBUG_REPORT_WARNING_BIT_EXT,
+            debugCallback
+        )
     val physicalDevice = Triangle.getFirstPhysicalDevice(instance)
     val deviceAndGraphicsQueueFamily = Triangle.createDeviceAndGetGraphicsQueueFamily(physicalDevice)
     val device = deviceAndGraphicsQueueFamily.device
@@ -61,13 +65,13 @@ fun main() {
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API)
     glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE)
     val window = glfwCreateWindow(800, 600, "GLFW Vulkan Demo", NULL, NULL)
-    lateinit var keyCallback: GLFWKeyCallback
-    glfwSetKeyCallback(window) { window: Long, key: Int, scancode: Int, action: Int, mods: Int ->
+    val keyCallback = GLFWKeyCallback.create { window: Long, key: Int, scancode: Int, action: Int, mods: Int ->
         //            if (action != GLFW_RELEASE)
 //                return
         if (key == GLFW_KEY_ESCAPE)
             glfwSetWindowShouldClose(window, true)
     }
+    glfwSetKeyCallback(window, keyCallback)
     val pSurface = memAllocLong(1)
     var err = glfwCreateWindowSurface(instance, window, null, pSurface)
     val surface = pSurface.get(0)
@@ -113,13 +117,20 @@ fun main() {
                 for (i in Triangle.framebuffers!!.indices)
                     vkDestroyFramebuffer(device!!, Triangle.framebuffers!![i], null)
             }
-            Triangle.framebuffers = Triangle.createFramebuffers(device, Triangle.swapchain!!, renderPass, Triangle.width, Triangle.height)
+            Triangle.framebuffers =
+                Triangle.createFramebuffers(device, Triangle.swapchain!!, renderPass, Triangle.width, Triangle.height)
             // Create render command buffers
             if (Triangle.renderCommandBuffers != null) {
                 vkResetCommandPool(device!!, renderCommandPool, VK_FLAGS_NONE)
             }
             Triangle.renderCommandBuffers = Triangle.createRenderCommandBuffers(
-                device, renderCommandPool, Triangle.framebuffers!!, renderPass, Triangle.width, Triangle.height, pipeline,
+                device,
+                renderCommandPool,
+                Triangle.framebuffers!!,
+                renderPass,
+                Triangle.width,
+                Triangle.height,
+                pipeline,
                 vertices.verticesBuf
             )
 
