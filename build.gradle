@@ -13,7 +13,7 @@ plugins {
 group = 'com.github.kotlin_graphics'
 
 application {
-//    mainClassName "wtf.TriangleDemo"
+//    mainClassName "main_.TriangleDemo"
     mainClassName "cmon.TriangleKt"
 }
 
@@ -41,9 +41,9 @@ dependencies {
 //    implementation "$kotlin-reflect"
 
     def kx = 'com.github.kotlin-graphics'
-    implementation "$kx:assimp:$assimp_version"
-    ["core", "gl", "vk"].each { implementation "${kx}.imgui:imgui-$it:$imgui_version" }
-    ["core", "gl", "vk"].each { implementation "${kx}.uno-sdk:uno-$it:$uno_version" }
+//    implementation "$kx:assimp:$assimp_version"
+//    ["core", "gl", "vk"].each { implementation "${kx}.imgui:imgui-$it:$imgui_version" }
+    ["core", "vk"].each { implementation "${kx}.uno-sdk:uno-$it:$uno_version" }
     implementation "$kx:vkk:$vkk_version"
     implementation "$kx:gli:$gli_version"
     implementation "${kx}.glm:glm:$glm_version"

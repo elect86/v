@@ -1,5 +1,8 @@
 package classes
 
+import org.lwjgl.system.MemoryStack
+import org.lwjgl.vulkan.VkApplicationInfo
+import org.lwjgl.vulkan.VkApplicationInfo.callocStack
 import vkk.VkStructureType
 
 class ApplicationInfo(
@@ -28,4 +31,13 @@ class ApplicationInfo(
         apiVersion = src.apiVersion
         return this
     }
+
+    val MemoryStack.native: VkApplicationInfo
+        get() = callocStack(this)
+            .sType(type.i)
+            .pApplicationName(UTF8Safe(applicationName))
+            .applicationVersion(applicationVersion)
+            .pEngineName(UTF8Safe(engineName))
+            .engineVersion(engineVersion)
+            .apiVersion(apiVersion)
 }

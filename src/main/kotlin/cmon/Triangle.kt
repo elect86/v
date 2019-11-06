@@ -11,7 +11,7 @@ import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.IntBuffer
 
-import main.VKUtil.*
+import main_.VKUtil.*
 import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.glfw.GLFWVulkan.*
 import org.lwjgl.system.MemoryUtil.*
@@ -293,23 +293,8 @@ object Triangle {
         val appInfo = ApplicationInfo(apiVersion = VK_API_VERSION_1_0)
         requiredExtensions += VK_EXT_DEBUG_REPORT_EXTENSION_NAME
         val enabledLayerNames = listOf("VK_LAYER_LUNARG_standard_validation")
-        val pCreateInfo = InstanceCreateInfo(appInfo, requiredExtensions, enabledLayerNames)
-        val pInstance = memAllocPointer(1)
-        val err = vkCreateInstance(pCreateInfo, null, pInstance)
-        val instance = pInstance.get(0)
-        memFree(pInstance)
-        if (err != VK_SUCCESS) {
-            throw AssertionError("Failed to create VkInstance: " + translateVulkanResult(err))
-        }
-        val ret = VkInstance(instance, pCreateInfo)
-        pCreateInfo.free()
-        memFree(enabledLayerNames)
-        memFree(VK_EXT_DEBUG_REPORT_EXTENSION)
-        memFree(ppEnabledExtensionNames)
-        memFree(appInfo.pApplicationName())
-        memFree(appInfo.pEngineName())
-        appInfo.free()
-        return ret
+        val createInfo = InstanceCreateInfo(appInfo, requiredExtensions, enabledLayerNames)
+        return v createInstance createInfo
     }
 
     fun setupDebugging(instance: VkInstance, flags: Int, callback: VkDebugReportCallbackEXT): Long {

@@ -1,9 +1,13 @@
 package classes
 
 import kool.Ptr
+import org.lwjgl.system.MemoryStack
 import org.lwjgl.system.MemoryUtil.NULL
 import org.lwjgl.vulkan.*
+import org.lwjgl.vulkan.VkInstanceCreateInfo.callocStack
+import util.PointerBuffer
 import vkk.VkStructureType
+import vkk.applicationInfo
 import vkk.stak
 
 /**
@@ -73,8 +77,11 @@ class InstanceCreateInfo(
         return this
     }
 
-    fun <R> native(block: (VkInstanceCreateInfo) -> R): R = stak {
-
-        block()
-    }
+    val MemoryStack.native: VkInstanceCreateInfo
+        get() = callocStack(this)
+            .sType(type.i)
+            .pNext(next)
+            .pApplicationInfo(applicationInfo?.run { native })
+            .ppEnabledLayerNames(PointerBuffer(enabledLayerNames))
+            .ppEnabledExtensionNames(PointerBuffer(enabledExtensionNames))
 }
