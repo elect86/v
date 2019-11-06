@@ -1,11 +1,14 @@
 package util
 
+import glm_.b
 import glm_.i
 import kool.PointerBuffer
 import kool.Ptr
+import kool.adr
 import kool.set
 import org.lwjgl.PointerBuffer
 import org.lwjgl.system.MemoryStack
+import org.lwjgl.system.MemoryUtil
 import org.lwjgl.system.MemoryUtil.*
 import java.nio.ByteBuffer
 
@@ -14,14 +17,19 @@ fun MemoryStack.PointerBuffer(strings: Collection<String>?): PointerBuffer? = st
 
 fun MemoryStack.PointerBuffer(strings: Collection<String>): PointerBuffer =
     PointerBuffer_(strings.size) { i ->
-        val length = memLengthUTF8(strings.elementAt(i), true)
-        nmalloc(1, length).also {
-            encodeUTF8(strings.elementAt(i), true, it)
-        }
+        val string = strings.elementAt(i)
+        val length = memLengthUTF8(string, true)
+        val target = nmalloc(1, length)
+        encodeUTF8(string, true, target)
+        println(memUTF8(target))
+        MemoryUtil.memByteBuffer(target, length).adr
     }
 
 inline fun MemoryStack.PointerBuffer_(size: Int, init: (Int) -> Ptr) =
-    PointerBuffer(size).apply { for (i in 0 until size) this[i] = init(i) }
+    PointerBuffer(size).apply {
+        for (i in 0 until size)
+            this[i] = init(i)
+    }
 
 fun MemoryStack.nUtf8(text: CharSequence, nullTerminated: Boolean = true): Ptr {
     val length = memLengthUTF8(text, nullTerminated)
@@ -39,37 +47,38 @@ internal fun encodeUTF8(text: CharSequence, nullTerminated: Boolean, target: Lon
 
     // ASCII fast path
     while (i < len && c.i < 0x80) {
-        UNSAFE.putByte(target + p++, c.toByte())
-        i++
+        UNSAFE.putByte(target + p++, c.b)
+        if(++i < len)
+            c = text[i]
+        else break
     }
 
     // Slow path
     while (i < len) {
         c = text[i++]
-        if (c.toInt() < 0x80) {
-            UNSAFE.putByte(target + p++, c.toByte())
-        } else {
-            var cp = c.toInt()
-            if (c.toInt() < 0x800) {
-                UNSAFE.putByte(target + p++, (0xC0 or (cp shr 6)).toByte())
+        if (c.toInt() < 0x80)
+            UNSAFE.putByte(target + p++, c.b)
+        else {
+            var cp = c.i
+            if (c.i < 0x800) {
+                UNSAFE.putByte(target + p++, (0xC0 or (cp shr 6)).b)
             } else {
-                if (!c.isHighSurrogate()) {
-                    UNSAFE.putByte(target + p++, (0xE0 or (cp shr 12)).toByte())
-                } else {
+                if (!c.isHighSurrogate())
+                    UNSAFE.putByte(target + p++, (0xE0 or (cp shr 12)).b)
+                else {
                     cp = Character.toCodePoint(c, text[i++])
 
-                    UNSAFE.putByte(target + p++, (0xF0 or (cp shr 18)).toByte())
-                    UNSAFE.putByte(target + p++, (0x80 or (cp shr 12 and 0x3F)).toByte())
+                    UNSAFE.putByte(target + p++, (0xF0 or (cp shr 18)).b)
+                    UNSAFE.putByte(target + p++, (0x80 or (cp shr 12 and 0x3F)).b)
                 }
-                UNSAFE.putByte(target + p++, (0x80 or (cp shr 6 and 0x3F)).toByte())
+                UNSAFE.putByte(target + p++, (0x80 or (cp shr 6 and 0x3F)).b)
             }
-            UNSAFE.putByte(target + p++, (0x80 or (cp and 0x3F)).toByte())
+            UNSAFE.putByte(target + p++, (0x80 or (cp and 0x3F)).b)
         }
     }
 
-    if (nullTerminated) {
-        UNSAFE.putByte(target + p++, 0.toByte()) // TODO: did we have a bug here?
-    }
+    if (nullTerminated)
+        UNSAFE.putByte(target + p++, 0.b) // TODO: did we have a bug here?
 
     return p
 }

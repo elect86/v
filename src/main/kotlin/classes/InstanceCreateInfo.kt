@@ -1,6 +1,9 @@
 package classes
 
+import kool.PointerBuffer
 import kool.Ptr
+import kool.adr
+import kool.set
 import org.lwjgl.system.MemoryStack
 import org.lwjgl.system.MemoryUtil.NULL
 import org.lwjgl.vulkan.*
@@ -78,10 +81,17 @@ class InstanceCreateInfo(
     }
 
     val MemoryStack.native: VkInstanceCreateInfo
-        get() = callocStack(this)
-            .sType(type.i)
-            .pNext(next)
-            .pApplicationInfo(applicationInfo?.run { native })
-            .ppEnabledLayerNames(PointerBuffer(enabledLayerNames))
-            .ppEnabledExtensionNames(PointerBuffer(enabledExtensionNames))
+        get() {
+            val layers = callocPointer(1)
+            layers.put(0, UTF8(enabledLayerNames!![0]))
+//            val extensions = PointerBuffer(enabledExtensionNames!!.size)
+//            for(i in enabledExtensionNames!!.indices)
+//                extensions[i] = UTF8(enabledExtensionNames!![i]).adr
+            return callocStack(this)
+                .sType(type.i)
+                .pNext(next)
+                .pApplicationInfo(applicationInfo?.run { native })
+                .ppEnabledLayerNames(null)
+                .ppEnabledExtensionNames(null)
+        }
 }

@@ -17,7 +17,7 @@ object v {
     infix fun createInstance(createInfo: InstanceCreateInfo): VkInstance = stak { s ->
         val vkInstanceCreateInfo = createInfo.run { s.native }
         val p = s.callocPointer(1)
-        VK_CHECK_RESULT(VK10.vkCreateInstance(vkInstanceCreateInfo, null, p))
+        val res = VK10.vkCreateInstance(vkInstanceCreateInfo, null, p)
         VkInstance(p[0], vkInstanceCreateInfo)
 //        VkInstance(s.pointerBuffer {
 //            VK_CHECK_RESULT(VK10.vkCreateInstance(vkInstanceCreateInfo, null, it))

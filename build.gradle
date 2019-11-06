@@ -54,41 +54,12 @@ dependencies {
 
 //    testImplementation "io.kotlintest:kotlintest-runner-junit5:$kotlintest_version"
 
-//    ext.lwjglVersion = "3.2.3"
-//    ["", "-glfw", "-jemalloc", "-openal", "-opengl", "-stb", "-vulkan", "-shaderc"].each {
-//        implementation "org.lwjgl:lwjgl$it:$lwjgl_version"
-//        if(it != "-vulkan")
-//            runtime "org.lwjgl:lwjgl$it:$lwjgl_version:natives-$lwjgl_natives"
-//    }
-
     ext.lwjglVersion = "3.2.3"
-    ext.lwjglNatives = "natives-windows"
-
-        implementation "org.lwjgl:lwjgl:$lwjglVersion"
-        implementation "org.lwjgl:lwjgl-assimp:$lwjglVersion"
-        implementation "org.lwjgl:lwjgl-bgfx:$lwjglVersion"
-        implementation "org.lwjgl:lwjgl-glfw:$lwjglVersion"
-        implementation "org.lwjgl:lwjgl-nanovg:$lwjglVersion"
-        implementation "org.lwjgl:lwjgl-nuklear:$lwjglVersion"
-        implementation "org.lwjgl:lwjgl-openal:$lwjglVersion"
-        implementation "org.lwjgl:lwjgl-opengl:$lwjglVersion"
-        implementation "org.lwjgl:lwjgl-par:$lwjglVersion"
-        implementation "org.lwjgl:lwjgl-stb:$lwjglVersion"
-        implementation "org.lwjgl:lwjgl-vulkan:$lwjglVersion"
-        implementation "org.lwjgl:lwjgl-shaderc:$lwjglVersion"
-        implementation "org.lwjgl:lwjgl-jemalloc:$lwjglVersion"
-        runtimeOnly "org.lwjgl:lwjgl:$lwjglVersion:$lwjglNatives"
-        runtimeOnly "org.lwjgl:lwjgl-assimp:$lwjglVersion:$lwjglNatives"
-        runtimeOnly "org.lwjgl:lwjgl-bgfx:$lwjglVersion:$lwjglNatives"
-        runtimeOnly "org.lwjgl:lwjgl-glfw:$lwjglVersion:$lwjglNatives"
-        runtimeOnly "org.lwjgl:lwjgl-nanovg:$lwjglVersion:$lwjglNatives"
-        runtimeOnly "org.lwjgl:lwjgl-nuklear:$lwjglVersion:$lwjglNatives"
-        runtimeOnly "org.lwjgl:lwjgl-openal:$lwjglVersion:$lwjglNatives"
-        runtimeOnly "org.lwjgl:lwjgl-opengl:$lwjglVersion:$lwjglNatives"
-        runtimeOnly "org.lwjgl:lwjgl-par:$lwjglVersion:$lwjglNatives"
-        runtimeOnly "org.lwjgl:lwjgl-stb:$lwjglVersion:$lwjglNatives"
-        runtimeOnly "org.lwjgl:lwjgl-shaderc:$lwjglVersion:$lwjglNatives"
-        runtimeOnly "org.lwjgl:lwjgl-jemalloc:$lwjglVersion:$lwjglNatives"
+    ["", "-glfw", "-jemalloc", "-openal", "-opengl", "-stb", "-vulkan", "-shaderc"].each {
+        implementation "org.lwjgl:lwjgl$it:$lwjgl_version"
+        if(it != "-vulkan")
+            runtimeOnly "org.lwjgl:lwjgl$it:$lwjgl_version:natives-$lwjgl_natives"
+    }
 
 //    ext.spirvCross = "graphics.scenery:spirvcrossj:0.5.0-1.1.85"
 //    implementation spirvCross
