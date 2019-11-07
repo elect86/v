@@ -13,8 +13,7 @@ class ApplicationInfo(
     var apiVersion: Int = 0
 ) {
 
-    val type: VkStructureType
-        get() = VkStructureType.APPLICATION_INFO
+    val type get() = VkStructureType.APPLICATION_INFO
 
     /**
      * Copies the specified struct data to this struct.

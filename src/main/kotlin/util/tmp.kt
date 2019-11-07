@@ -1,5 +1,6 @@
 package util
 
+import glm_.BYTES
 import glm_.b
 import glm_.i
 import kool.PointerBuffer
@@ -19,10 +20,7 @@ fun MemoryStack.PointerBuffer(strings: Collection<String>): PointerBuffer =
     PointerBuffer_(strings.size) { i ->
         val string = strings.elementAt(i)
         val length = memLengthUTF8(string, true)
-        val target = nmalloc(1, length)
-        encodeUTF8(string, true, target)
-        println(memUTF8(target))
-        MemoryUtil.memByteBuffer(target, length).adr
+        nmalloc(1, length).also { encodeUTF8(string, true, it) }
     }
 
 inline fun MemoryStack.PointerBuffer_(size: Int, init: (Int) -> Ptr) =
@@ -48,7 +46,7 @@ internal fun encodeUTF8(text: CharSequence, nullTerminated: Boolean, target: Lon
     // ASCII fast path
     while (i < len && c.i < 0x80) {
         UNSAFE.putByte(target + p++, c.b)
-        if(++i < len)
+        if (++i < len)
             c = text[i]
         else break
     }
@@ -113,4 +111,10 @@ val UNSAFE: sun.misc.Unsafe = run {
     }
     unsafe
 //    throw UnsupportedOperationException("LWJGL requires sun.misc.Unsafe to be available.")
+}
+
+fun <R> MemoryStack.longAddress(block: (Ptr) -> R): Long {
+    val p= nmalloc(8, Long.BYTES)
+    block(p)
+    return memGetLong(p)
 }

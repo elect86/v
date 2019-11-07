@@ -67,8 +67,7 @@ class InstanceCreateInfo(
     var next: Ptr = NULL
 ) {
 
-    val type: VkStructureType
-        get() = VkStructureType.INSTANCE_CREATE_INFO
+    val type get() = VkStructureType.INSTANCE_CREATE_INFO
 
 
     /** Initializes this struct with the specified values.  */
@@ -81,17 +80,10 @@ class InstanceCreateInfo(
     }
 
     val MemoryStack.native: VkInstanceCreateInfo
-        get() {
-            val layers = callocPointer(1)
-            layers.put(0, UTF8(enabledLayerNames!![0]))
-//            val extensions = PointerBuffer(enabledExtensionNames!!.size)
-//            for(i in enabledExtensionNames!!.indices)
-//                extensions[i] = UTF8(enabledExtensionNames!![i]).adr
-            return callocStack(this)
-                .sType(type.i)
-                .pNext(next)
-                .pApplicationInfo(applicationInfo?.run { native })
-                .ppEnabledLayerNames(null)
-                .ppEnabledExtensionNames(null)
-        }
+        get() = callocStack(this)
+            .sType(type.i)
+            .pNext(next)
+            .pApplicationInfo(applicationInfo?.run { native })
+            .ppEnabledLayerNames(PointerBuffer(enabledLayerNames))
+            .ppEnabledExtensionNames(PointerBuffer(enabledExtensionNames))
 }

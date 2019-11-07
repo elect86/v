@@ -2,7 +2,9 @@ package cmon
 
 import classes.InstanceCreateInfo
 import kool.PointerBuffer
+import kool.adr
 import org.lwjgl.PointerBuffer
+import org.lwjgl.system.MemoryUtil.NULL
 import org.lwjgl.system.NativeType
 import org.lwjgl.vulkan.VK10
 import org.lwjgl.vulkan.VkAllocationCallbacks
@@ -17,10 +19,7 @@ object v {
     infix fun createInstance(createInfo: InstanceCreateInfo): VkInstance = stak { s ->
         val vkInstanceCreateInfo = createInfo.run { s.native }
         val p = s.callocPointer(1)
-        val res = VK10.vkCreateInstance(vkInstanceCreateInfo, null, p)
+        VK_CHECK_RESULT(VK10.nvkCreateInstance(vkInstanceCreateInfo.adr, NULL, p.adr))
         VkInstance(p[0], vkInstanceCreateInfo)
-//        VkInstance(s.pointerBuffer {
-//            VK_CHECK_RESULT(VK10.vkCreateInstance(vkInstanceCreateInfo, null, it))
-//        }, vkInstanceCreateInfo)
     }
 }

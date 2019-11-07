@@ -1,8 +1,9 @@
 package cmon
 
-import classes.ApplicationInfo
-import classes.InstanceCreateInfo
+import classes.*
+import extensions.createDebugReportCallback
 import glm_.L
+import kool.Ptr
 import kool.adr
 import kool.rem
 import org.lwjgl.glfw.GLFWKeyCallback
@@ -23,6 +24,11 @@ import org.lwjgl.vulkan.KHRSurface.*
 import org.lwjgl.vulkan.KHRSwapchain.*
 import org.lwjgl.vulkan.VK10.*
 import uno.glfw.glfw
+import vkk.VkDebugReport
+import vkk.VkDebugReportFlagsEXT
+import vkk.VkDebugReportObjectTypeEXT
+import vkk.entities.VkDebugReportCallback
+import vkk.extensionFunctions.enumeratePhysicalDevices
 
 fun main() {
 
@@ -36,29 +42,11 @@ fun main() {
         throw AssertionError("Failed to find list of required Vulkan extensions")
 
     // Create the Vulkan instance
-    val instance = Triangle.createInstance(requiredExtensions)
-    val debugCallback = object : VkDebugReportCallbackEXT() {
-        override operator fun invoke(
-            flags: Int,
-            objectType: Int,
-            `object`: Long,
-            location: Long,
-            messageCode: Int,
-            pLayerPrefix: Long,
-            pMessage: Long,
-            pUserData: Long
-        ): Int {
-            System.err.println("ERROR OCCURED: " + VkDebugReportCallbackEXT.getString(pMessage))
-            return 0
-        }
-    }
-    val debugCallbackHandle =
-        Triangle.setupDebugging(
-            instance,
-            VK_DEBUG_REPORT_ERROR_BIT_EXT or VK_DEBUG_REPORT_WARNING_BIT_EXT,
-            debugCallback
-        )
-    val physicalDevice = Triangle.getFirstPhysicalDevice(instance)
+    val instance = createInstance(requiredExtensions)
+    DebugReportCallback.callback =
+        { _, _, _, _, _, _, message: String, _ -> System.err.println("ERROR OCCURED: $message") }
+    val debugCallbackHandle = setupDebugging(instance, VkDebugReport.ERROR_BIT_EXT or VkDebugReport.WARNING_BIT_EXT)
+    val physicalDevice = instance.enumeratePhysicalDevices[0]
     val deviceAndGraphicsQueueFamily = Triangle.createDeviceAndGetGraphicsQueueFamily(physicalDevice)
     val device = deviceAndGraphicsQueueFamily.device
     val queueFamilyIndex = deviceAndGraphicsQueueFamily.queueFamilyIndex
@@ -256,7 +244,7 @@ fun main() {
     memFree(pSwapchains)
     memFree(pCommandBuffers)
 
-    vkDestroyDebugReportCallbackEXT(instance, debugCallbackHandle, null)
+    vkDestroyDebugReportCallbackEXT(instance, debugCallbackHandle.L, null)
 
     windowSizeCallback.free()
     keyCallback.free()
@@ -265,6 +253,19 @@ fun main() {
 
     // We don't bother disposing of all Vulkan resources.
     // Let the OS process manager take care of it.
+}
+
+fun createInstance(requiredExtensions: ArrayList<String>): VkInstance {
+    val appInfo = ApplicationInfo(apiVersion = VK_API_VERSION_1_0)
+    requiredExtensions += VK_EXT_DEBUG_REPORT_EXTENSION_NAME
+    val enabledLayerNames = listOf("VK_LAYER_LUNARG_standard_validation")
+    val createInfo = InstanceCreateInfo(appInfo, enabledLayerNames, requiredExtensions)
+    return v createInstance createInfo
+}
+
+fun setupDebugging(instance: VkInstance, flags: VkDebugReportFlagsEXT): VkDebugReportCallback {
+    val dbgCreateInfo = DebugReportCallbackCreateInfo(flags)
+    return instance createDebugReportCallback dbgCreateInfo
 }
 
 object Triangle {
@@ -286,52 +287,6 @@ object Triangle {
     var width: Int = 0
     var height: Int = 0
     var renderCommandBuffers: Array<VkCommandBuffer>? = null
-
-    /**
-     * Create a Vulkan instance using LWJGL 3.
-     *
-     * @return the VkInstance handle
-     */
-    fun createInstance(requiredExtensions: ArrayList<String>): VkInstance {
-        val appInfo = ApplicationInfo(apiVersion = VK_API_VERSION_1_0)
-        requiredExtensions += VK_EXT_DEBUG_REPORT_EXTENSION_NAME
-        val enabledLayerNames = listOf("VK_LAYER_LUNARG_standard_validation")
-        val createInfo = InstanceCreateInfo(appInfo, requiredExtensions, enabledLayerNames)
-        return v createInstance createInfo
-    }
-
-    fun setupDebugging(instance: VkInstance, flags: Int, callback: VkDebugReportCallbackEXT): Long {
-        val dbgCreateInfo = VkDebugReportCallbackCreateInfoEXT.calloc()
-            .sType(VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT)
-            .pfnCallback(callback)
-            .flags(flags)
-        val pCallback = memAllocLong(1)
-        val err = vkCreateDebugReportCallbackEXT(instance, dbgCreateInfo, null, pCallback)
-        val callbackHandle = pCallback.get(0)
-        memFree(pCallback)
-        dbgCreateInfo.free()
-        if (err != VK_SUCCESS) {
-            throw AssertionError("Failed to create VkInstance: " + translateVulkanResult(err))
-        }
-        return callbackHandle
-    }
-
-    fun getFirstPhysicalDevice(instance: VkInstance): VkPhysicalDevice {
-        val pPhysicalDeviceCount = memAllocInt(1)
-        var err = vkEnumeratePhysicalDevices(instance, pPhysicalDeviceCount, null)
-        if (err != VK_SUCCESS) {
-            throw AssertionError("Failed to get number of physical devices: " + translateVulkanResult(err))
-        }
-        val pPhysicalDevices = memAllocPointer(pPhysicalDeviceCount.get(0))
-        err = vkEnumeratePhysicalDevices(instance, pPhysicalDeviceCount, pPhysicalDevices)
-        val physicalDevice = pPhysicalDevices.get(0)
-        memFree(pPhysicalDeviceCount)
-        memFree(pPhysicalDevices)
-        if (err != VK_SUCCESS) {
-            throw AssertionError("Failed to get physical devices: " + translateVulkanResult(err))
-        }
-        return VkPhysicalDevice(physicalDevice, instance)
-    }
 
     class DeviceAndGraphicsQueueFamily {
         internal var device: VkDevice? = null
