@@ -1,8 +1,10 @@
 package classes
 
+import kool.Ptr
 import org.lwjgl.system.MemoryStack
-import org.lwjgl.vulkan.VkApplicationInfo
-import org.lwjgl.vulkan.VkApplicationInfo.callocStack
+import org.lwjgl.system.MemoryUtil.memPutAddress
+import org.lwjgl.vulkan.VkApplicationInfo.*
+import util.nUtf8
 import vkk.VkStructureType
 
 class ApplicationInfo(
@@ -31,12 +33,13 @@ class ApplicationInfo(
         return this
     }
 
-    val MemoryStack.native: VkApplicationInfo
-        get() = callocStack(this)
-            .sType(type.i)
-            .pApplicationName(UTF8Safe(applicationName))
-            .applicationVersion(applicationVersion)
-            .pEngineName(UTF8Safe(engineName))
-            .engineVersion(engineVersion)
-            .apiVersion(apiVersion)
+    val MemoryStack.native: Ptr
+        get() = ncalloc(ALIGNOF, 1, SIZEOF).also {
+            nsType(it, type.i)
+            memPutAddress(it + PAPPLICATIONNAME, nUtf8(applicationName))
+            napplicationVersion(it, applicationVersion)
+            memPutAddress(it + PENGINENAME, nUtf8(engineName))
+            nengineVersion(it, engineVersion)
+            napiVersion(it, apiVersion)
+        }
 }

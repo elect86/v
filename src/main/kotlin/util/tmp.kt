@@ -1,6 +1,8 @@
 package util
 
+import classes.*
 import glm_.BYTES
+import glm_.L
 import glm_.b
 import glm_.i
 import kool.PointerBuffer
@@ -9,9 +11,10 @@ import kool.adr
 import kool.set
 import org.lwjgl.PointerBuffer
 import org.lwjgl.system.MemoryStack
-import org.lwjgl.system.MemoryUtil
 import org.lwjgl.system.MemoryUtil.*
-import java.nio.ByteBuffer
+import org.lwjgl.system.Pointer
+import org.lwjgl.vulkan.*
+import java.nio.LongBuffer
 
 @JvmName("PointerBufferSafe")
 fun MemoryStack.PointerBuffer(strings: Collection<String>?): PointerBuffer? = strings?.let { PointerBuffer(it) }
@@ -28,6 +31,29 @@ inline fun MemoryStack.PointerBuffer_(size: Int, init: (Int) -> Ptr) =
         for (i in 0 until size)
             this[i] = init(i)
     }
+
+@JvmName("PointerAddressSafe")
+fun MemoryStack.PointerAddress(strings: Collection<String>?): Ptr = strings?.let { PointerAddress(it) } ?: NULL
+
+fun MemoryStack.PointerAddress(strings: Collection<String>): Ptr =
+    PointerAddress(strings.size) { i ->
+        val string = strings.elementAt(i)
+        val length = memLengthUTF8(string, true)
+        nmalloc(1, length).also { encodeUTF8(string, true, it) }
+    }
+
+inline fun MemoryStack.PointerAddress(size: Int, init: (Int) -> Ptr): Ptr {
+    val bytes = size * Pointer.POINTER_SIZE
+    val address = nmalloc(Pointer.POINTER_SIZE, bytes)
+    memSet(address, 0, bytes.L)
+    for (i in 0 until size)
+        memPutAddress(address + i * Pointer.POINTER_SIZE, init(i))
+    return address
+}
+
+@JvmName("nUtf8Safe")
+fun MemoryStack.nUtf8(text: CharSequence?, nullTerminated: Boolean = true): Ptr =
+    text?.let { nUtf8(it, nullTerminated) } ?: NULL
 
 fun MemoryStack.nUtf8(text: CharSequence, nullTerminated: Boolean = true): Ptr {
     val length = memLengthUTF8(text, nullTerminated)
@@ -114,7 +140,50 @@ val UNSAFE: sun.misc.Unsafe = run {
 }
 
 fun <R> MemoryStack.longAddress(block: (Ptr) -> R): Long {
-    val p= nmalloc(8, Long.BYTES)
+    val p = nmalloc(8, Long.BYTES)
     block(p)
     return memGetLong(p)
+}
+
+fun <R> MemoryStack.longBuffer(block: (LongBuffer) -> R): Long {
+    val p = callocLong(1)
+    block(p)
+    return p[0]
+}
+
+fun <R> MemoryStack.pointerAddress(block: (Ptr) -> R): Long = longAddress(block)
+
+fun Array<DeviceQueueCreateInfo>.native(stack: MemoryStack): VkDeviceQueueCreateInfo.Buffer {
+    val natives = VkDeviceQueueCreateInfo.callocStack(size, stack)
+    for (i in indices)
+        this[i].run { stack.toPtr(natives[i].adr) }
+    return natives
+}
+
+fun Array<AttachmentReference>.native(stack: MemoryStack): Ptr {
+    val natives = stack.ncalloc(VkAttachmentReference.ALIGNOF, size, VkAttachmentReference.SIZEOF)
+    for (i in indices)
+        this[i] toPtr (natives + i * VkAttachmentReference.SIZEOF)
+    return natives
+}
+
+fun Array<AttachmentDescription>.native(stack: MemoryStack): Ptr {
+    val natives = stack.ncalloc(VkAttachmentDescription.ALIGNOF, size, VkAttachmentDescription.SIZEOF)
+    for (i in indices)
+        this[i] toPtr (natives + i * VkAttachmentDescription.SIZEOF)
+    return natives
+}
+
+fun Array<SubpassDescription>.native(stack: MemoryStack): Ptr {
+    val natives = stack.ncalloc(VkSubpassDescription.ALIGNOF, size, VkSubpassDescription.SIZEOF)
+    for (i in indices)
+        this[i].run { stack.toPtr(natives + i * VkSubpassDescription.SIZEOF) }
+    return natives
+}
+
+fun Array<SubpassDependency>.native(stack: MemoryStack): Ptr {
+    val natives = stack.ncalloc(VkSubpassDependency.ALIGNOF, size, VkSubpassDependency.SIZEOF)
+    for (i in indices)
+        this[i] toPtr (natives + i * VkSubpassDependency.SIZEOF)
+    return natives
 }

@@ -13,6 +13,6 @@ import vkk.stak
 infix fun VkInstance.createDebugReportCallback(createInfo: DebugReportCallbackCreateInfo): VkDebugReportCallback =
     stak { s ->
         VkDebugReportCallback(s.longAddress {
-            VK_CHECK_RESULT(nvkCreateDebugReportCallbackEXT(this, createInfo.run { s.native }.adr, NULL, it))
+            VK_CHECK_RESULT(nvkCreateDebugReportCallbackEXT(this, createInfo.run { s.native }, NULL, it))
         })
     }

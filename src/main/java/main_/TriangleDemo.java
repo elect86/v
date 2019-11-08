@@ -1,6 +1,7 @@
 package main_;
 
 import org.lwjgl.PointerBuffer;
+import org.lwjgl.glfw.Callbacks;
 import org.lwjgl.glfw.GLFWKeyCallback;
 import org.lwjgl.glfw.GLFWWindowSizeCallback;
 import org.lwjgl.system.MemoryUtil;
@@ -1099,8 +1100,9 @@ public class TriangleDemo {
 
         vkDestroyDebugReportCallbackEXT(instance, debugCallbackHandle, null);
 
-        windowSizeCallback.free();
-        keyCallback.free();
+//        windowSizeCallback.free();
+//        keyCallback.free();
+        Callbacks.glfwFreeCallbacks(window);
         glfwDestroyWindow(window);
         glfwTerminate();
 

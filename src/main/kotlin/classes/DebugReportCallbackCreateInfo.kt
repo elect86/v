@@ -5,6 +5,7 @@ import org.lwjgl.system.MemoryStack
 import org.lwjgl.system.MemoryUtil.NULL
 import org.lwjgl.vulkan.EXTDebugReport
 import org.lwjgl.vulkan.VkDebugReportCallbackCreateInfoEXT
+import org.lwjgl.vulkan.VkDebugReportCallbackCreateInfoEXT.*
 import org.lwjgl.vulkan.VkDebugReportCallbackEXT
 import org.lwjgl.vulkan.VkDebugReportCallbackEXTI
 import vkk.VkDebugReportFlagsEXT
@@ -80,11 +81,12 @@ class DebugReportCallbackCreateInfo(
         return this
     }
 
-    val MemoryStack.native: VkDebugReportCallbackCreateInfoEXT
-        get() = VkDebugReportCallbackCreateInfoEXT.callocStack(this)
-            .sType(type.i)
-            .pNext(next)
-            .flags(flags)
-            .pfnCallback(DebugReportCallback.native)
-            .pUserData(userData)
+    val MemoryStack.native: Ptr
+        get() = ncalloc(ALIGNOF, 1, SIZEOF).also {
+            nsType(it, type.i)
+            npNext(it, next)
+            nflags(it, flags)
+            npfnCallback(it, DebugReportCallback.native)
+            npUserData(it, userData)
+        }
 }
