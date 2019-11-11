@@ -13,8 +13,8 @@ plugins {
 group = 'com.github.kotlin_graphics'
 
 application {
-//    mainClassName "main_.TriangleDemo"
-    mainClassName "cmon.TriangleKt"
+    mainClassName "main_.TriangleDemo"
+//    mainClassName "cmon.TriangleKt"
 }
 
 ext {

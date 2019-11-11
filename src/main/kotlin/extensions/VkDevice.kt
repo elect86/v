@@ -1,8 +1,6 @@
 package extensions
 
-import classes.CommandBufferAllocateInfo
-import classes.CommandPoolCreateInfo
-import classes.RenderPassCreateInfo
+import classes.*
 import kool.adr
 import org.lwjgl.system.MemoryUtil
 import org.lwjgl.system.MemoryUtil.*
@@ -13,9 +11,11 @@ import util.longAddress
 import util.longBuffer
 import vkk.VK_CHECK_RESULT
 import vkk.commandBufferCount
+import vkk.entities.VkBuffer
 import vkk.entities.VkCommandPool
 import vkk.entities.VkRenderPass
 import vkk.stak
+import vkk.vk
 
 inline infix fun <reified T> VkDevice.allocateCommandBuffers(allocateInfo: CommandBufferAllocateInfo): T =
     stak { s ->
@@ -46,6 +46,12 @@ inline infix fun <reified T> VkDevice.allocateCommandBuffers(allocateInfo: Comma
         }
     }
 
+infix fun VkDevice.createBuffer(createInfo: BufferCreateInfo): VkBuffer = stak { s ->
+    VkBuffer(s.longAddress {
+        VK_CHECK_RESULT(nvkCreateBuffer(this, createInfo.run { s.native }, NULL, it))
+    })
+}
+
 infix fun VkDevice.createCommandPool(createInfo: CommandPoolCreateInfo): VkCommandPool = stak { s ->
     VkCommandPool(s.longAddress {
         VK_CHECK_RESULT(
@@ -60,4 +66,9 @@ infix fun VkDevice.createRenderPass(createInfo: RenderPassCreateInfo): VkRenderP
             nvkCreateRenderPass(this, createInfo.run { s.native }, NULL, it)
         )
     })
+}
+
+fun VkDevice.getBufferMemoryRequirements(buffer: VkBuffer, memoryRequirements: MemoryRequirements = MemoryRequirements()): MemoryRequirements = stak {s ->
+    VkMem
+    nvkGetBufferMemoryRequirements(this, buffer.L, it.adr)
 }

@@ -2,6 +2,7 @@ package cmon
 
 import classes.*
 import extensions.*
+import glm_.vec2.Vec2
 import glm_.vec2.Vec2i
 import kool.indices
 import kool.rem
@@ -23,12 +24,8 @@ import uno.glfw.GlfwWindow
 import uno.glfw.glfw
 import uno.glfw.windowHint.Api
 import vkk.*
-import vkk.entities.VkCommandPool
-import vkk.entities.VkDebugReportCallback
-import vkk.entities.VkRenderPass
-import vkk.entities.VkSurfaceKHR
+import vkk.entities.*
 import vkk.extensionFunctions.*
-import vkk.extensionFunctions.createRenderPass
 import java.io.IOException
 import java.nio.IntBuffer
 
@@ -70,7 +67,7 @@ fun main() {
     val queue = device.getQueue(queueFamilyIndex)
     val renderPass = createRenderPass(device, format)
     val renderCommandPool = createCommandPool(device, queueFamilyIndex)
-    val vertices = Triangle.createVertices(memoryProperties, device)
+    val vertices = createVertices(device, memoryProperties)
     val pipeline = Triangle.createPipeline(device, renderPass.L, vertices.createInfo)
 
     class SwapchainRecreator {
@@ -179,13 +176,13 @@ fun main() {
             swapchainRecreator.recreate()
 
         // Create a semaphore to wait for the swapchain to acquire the next image
-        var err = vkCreateSemaphore(device!!, semaphoreCreateInfo, null, pImageAcquiredSemaphore)
+        var err = vkCreateSemaphore(device, semaphoreCreateInfo, null, pImageAcquiredSemaphore)
         if (err != VK_SUCCESS) {
             throw AssertionError("Failed to create image acquired semaphore: " + translateVulkanResult(err))
         }
 
         // Create a semaphore to wait for the render to complete, before presenting
-        err = vkCreateSemaphore(device!!, semaphoreCreateInfo, null, pRenderCompleteSemaphore)
+        err = vkCreateSemaphore(device, semaphoreCreateInfo, null, pRenderCompleteSemaphore)
         if (err != VK_SUCCESS) {
             throw AssertionError("Failed to create render complete semaphore: " + translateVulkanResult(err))
         }
@@ -193,7 +190,7 @@ fun main() {
         // Get next image from the swap chain (back/front buffer).
         // This will setup the imageAquiredSemaphore to be signalled when the operation is complete
         err = vkAcquireNextImageKHR(
-            device!!,
+            device,
             Triangle.swapchain!!.swapchainHandle,
             Triangle.UINT64_MAX,
             pImageAcquiredSemaphore.get(0),
@@ -225,8 +222,8 @@ fun main() {
         vkQueueWaitIdle(queue)
 
         // Destroy this semaphore (we will create a new one in the next frame)
-        vkDestroySemaphore(device!!, pImageAcquiredSemaphore.get(0), null)
-        vkDestroySemaphore(device!!, pRenderCompleteSemaphore.get(0), null)
+        vkDestroySemaphore(device, pImageAcquiredSemaphore.get(0), null)
+        vkDestroySemaphore(device, pRenderCompleteSemaphore.get(0), null)
 
         MemoryStack.stackGet().reset()
     }
@@ -365,6 +362,89 @@ fun createRenderPass(device: VkDevice, format: VkFormat): VkRenderPass {
     val renderPassInfo = RenderPassCreateInfo(attachment = attachment, subpass = subpass)
 
     return device createRenderPass renderPassInfo
+}
+
+fun createVertices(device: VkDevice, deviceMemoryProperties: VkPhysicalDeviceMemoryProperties): Triangle.Vertices {
+
+    val vertexBuffer = memAlloc(3 * Vec2.size)
+    // The triangle will showup upside-down, because Vulkan does not do proper viewport transformation to
+    // account for inverted Y axis between the window coordinate system and clip space/NDC
+    Vec2(-0.5f, -0.5f).to(vertexBuffer, 0)
+    Vec2(+0.5f, -0.5f).to(vertexBuffer, Vec2.size)
+    Vec2(+0.0f, +0.5f).to(vertexBuffer, Vec2.size * 2)
+
+    var err: Int
+
+    // Generate vertex buffer
+    //  Setup
+    val bufInfo = BufferCreateInfo(size = VkDeviceSize(vertexBuffer.rem), usageFlags = VkBufferUsage.VERTEX_BUFFER_BIT.i)
+    val verticesBuf = device createBuffer bufInfo
+
+    val memAlloc = MemoryAllocateInfo()
+    val memReqs = device.getBufferMemoryRequirements(verticesBuf)
+    vkGetBufferMemoryRequirements(device, verticesBuf, memReqs)
+    memAlloc.allocationSize(memReqs.size())
+    val memoryTypeIndex = memAllocInt(1)
+    Triangle.getMemoryType(
+        deviceMemoryProperties,
+        memReqs.memoryTypeBits(),
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+        memoryTypeIndex
+    )
+    memAlloc.memoryTypeIndex(memoryTypeIndex.get(0))
+    memFree(memoryTypeIndex)
+    memReqs.free()
+
+    val pMemory = memAllocLong(1)
+    err = vkAllocateMemory(device, memAlloc, null, pMemory)
+    val verticesMem = pMemory.get(0)
+    memFree(pMemory)
+    if (err != VK_SUCCESS) {
+        throw AssertionError("Failed to allocate vertex memory: " + translateVulkanResult(err))
+    }
+
+    val pData = memAllocPointer(1)
+    err = vkMapMemory(device, verticesMem, 0, memAlloc.allocationSize(), 0, pData)
+    val data = pData.get(0)
+    memFree(pData)
+    if (err != VK_SUCCESS) {
+        throw AssertionError("Failed to map vertex memory: " + translateVulkanResult(err))
+    }
+
+    memCopy(memAddress(vertexBuffer), data, vertexBuffer.remaining().toLong())
+    memFree(vertexBuffer)
+    vkUnmapMemory(device, verticesMem)
+    err = vkBindBufferMemory(device, verticesBuf.L, verticesMem, 0)
+    if (err != VK_SUCCESS) {
+        throw AssertionError("Failed to bind memory to vertex buffer: " + translateVulkanResult(err))
+    }
+
+    // Binding description
+    val bindingDescriptor = VkVertexInputBindingDescription.calloc(1)
+        .binding(0) // <- we bind our vertex buffer to point 0
+        .stride(2 * 4)
+        .inputRate(VK_VERTEX_INPUT_RATE_VERTEX)
+
+    // Attribute descriptions
+    // Describes memory layout and shader attribute locations
+    val attributeDescriptions = VkVertexInputAttributeDescription.calloc(1)
+    // Location 0 : Position
+    attributeDescriptions.get(0)
+        .binding(0) // <- binding point used in the VkVertexInputBindingDescription
+        .location(0) // <- location in the shader's attribute layout (inside the shader source)
+        .format(VK_FORMAT_R32G32_SFLOAT)
+        .offset(0)
+
+    // Assign to vertex buffer
+    val vi = VkPipelineVertexInputStateCreateInfo.calloc()
+        .sType(VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO)
+        .pVertexBindingDescriptions(bindingDescriptor)
+        .pVertexAttributeDescriptions(attributeDescriptions)
+
+    val ret = Triangle.Vertices()
+    ret.createInfo = vi
+    ret.verticesBuf = verticesBuf.L
+    return ret
 }
 
 object Triangle {
@@ -657,101 +737,6 @@ object Triangle {
         internal var createInfo: VkPipelineVertexInputStateCreateInfo? = null
     }
 
-    fun createVertices(deviceMemoryProperties: VkPhysicalDeviceMemoryProperties?, device: VkDevice?): Vertices {
-        val vertexBuffer = memAlloc(3 * 2 * 4)
-        val fb = vertexBuffer.asFloatBuffer()
-        // The triangle will showup upside-down, because Vulkan does not do proper viewport transformation to
-        // account for inverted Y axis between the window coordinate system and clip space/NDC
-        fb.put(-0.5f).put(-0.5f)
-        fb.put(0.5f).put(-0.5f)
-        fb.put(0.0f).put(0.5f)
-
-        val memAlloc = VkMemoryAllocateInfo.calloc()
-            .sType(VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO)
-        val memReqs = VkMemoryRequirements.calloc()
-
-        var err: Int
-
-        // Generate vertex buffer
-        //  Setup
-        val bufInfo = VkBufferCreateInfo.calloc()
-            .sType(VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO)
-            .size(vertexBuffer.remaining().toLong())
-            .usage(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
-        val pBuffer = memAllocLong(1)
-        err = vkCreateBuffer(device!!, bufInfo, null, pBuffer)
-        val verticesBuf = pBuffer.get(0)
-        memFree(pBuffer)
-        bufInfo.free()
-        if (err != VK_SUCCESS) {
-            throw AssertionError("Failed to create vertex buffer: " + translateVulkanResult(err))
-        }
-
-        vkGetBufferMemoryRequirements(device!!, verticesBuf, memReqs)
-        memAlloc.allocationSize(memReqs.size())
-        val memoryTypeIndex = memAllocInt(1)
-        getMemoryType(
-            deviceMemoryProperties,
-            memReqs.memoryTypeBits(),
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-            memoryTypeIndex
-        )
-        memAlloc.memoryTypeIndex(memoryTypeIndex.get(0))
-        memFree(memoryTypeIndex)
-        memReqs.free()
-
-        val pMemory = memAllocLong(1)
-        err = vkAllocateMemory(device!!, memAlloc, null, pMemory)
-        val verticesMem = pMemory.get(0)
-        memFree(pMemory)
-        if (err != VK_SUCCESS) {
-            throw AssertionError("Failed to allocate vertex memory: " + translateVulkanResult(err))
-        }
-
-        val pData = memAllocPointer(1)
-        err = vkMapMemory(device!!, verticesMem, 0, memAlloc.allocationSize(), 0, pData)
-        memAlloc.free()
-        val data = pData.get(0)
-        memFree(pData)
-        if (err != VK_SUCCESS) {
-            throw AssertionError("Failed to map vertex memory: " + translateVulkanResult(err))
-        }
-
-        MemoryUtil.memCopy(memAddress(vertexBuffer), data, vertexBuffer.remaining().toLong())
-        memFree(vertexBuffer)
-        vkUnmapMemory(device!!, verticesMem)
-        err = vkBindBufferMemory(device!!, verticesBuf, verticesMem, 0)
-        if (err != VK_SUCCESS) {
-            throw AssertionError("Failed to bind memory to vertex buffer: " + translateVulkanResult(err))
-        }
-
-        // Binding description
-        val bindingDescriptor = VkVertexInputBindingDescription.calloc(1)
-            .binding(0) // <- we bind our vertex buffer to point 0
-            .stride(2 * 4)
-            .inputRate(VK_VERTEX_INPUT_RATE_VERTEX)
-
-        // Attribute descriptions
-        // Describes memory layout and shader attribute locations
-        val attributeDescriptions = VkVertexInputAttributeDescription.calloc(1)
-        // Location 0 : Position
-        attributeDescriptions.get(0)
-            .binding(0) // <- binding point used in the VkVertexInputBindingDescription
-            .location(0) // <- location in the shader's attribute layout (inside the shader source)
-            .format(VK_FORMAT_R32G32_SFLOAT)
-            .offset(0)
-
-        // Assign to vertex buffer
-        val vi = VkPipelineVertexInputStateCreateInfo.calloc()
-            .sType(VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO)
-            .pVertexBindingDescriptions(bindingDescriptor)
-            .pVertexAttributeDescriptions(attributeDescriptions)
-
-        val ret = Vertices()
-        ret.createInfo = vi
-        ret.verticesBuf = verticesBuf
-        return ret
-    }
 
     @Throws(IOException::class)
     fun createPipeline(device: VkDevice?, renderPass: Long, vi: VkPipelineVertexInputStateCreateInfo?): Long {
