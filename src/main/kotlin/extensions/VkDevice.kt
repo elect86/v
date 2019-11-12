@@ -13,6 +13,7 @@ import vkk.VK_CHECK_RESULT
 import vkk.commandBufferCount
 import vkk.entities.VkBuffer
 import vkk.entities.VkCommandPool
+import vkk.entities.VkDeviceMemory
 import vkk.entities.VkRenderPass
 import vkk.stak
 import vkk.vk
@@ -46,6 +47,12 @@ inline infix fun <reified T> VkDevice.allocateCommandBuffers(allocateInfo: Comma
         }
     }
 
+infix fun VkDevice.allocateMemory(allocateInfo: MemoryAllocateInfo): VkDeviceMemory = stak { s ->
+    VkDeviceMemory(s.longAddress {
+        VK_CHECK_RESULT(nvkAllocateMemory(this, allocateInfo.run { s.native }, NULL, it))
+    })
+}
+
 infix fun VkDevice.createBuffer(createInfo: BufferCreateInfo): VkBuffer = stak { s ->
     VkBuffer(s.longAddress {
         VK_CHECK_RESULT(nvkCreateBuffer(this, createInfo.run { s.native }, NULL, it))
@@ -68,7 +75,13 @@ infix fun VkDevice.createRenderPass(createInfo: RenderPassCreateInfo): VkRenderP
     })
 }
 
-fun VkDevice.getBufferMemoryRequirements(buffer: VkBuffer, memoryRequirements: MemoryRequirements = MemoryRequirements()): MemoryRequirements = stak {s ->
-    VkMem
-    nvkGetBufferMemoryRequirements(this, buffer.L, it.adr)
+fun VkDevice.getBufferMemoryRequirements(
+    buffer: VkBuffer,
+    memoryRequirements: MemoryRequirements = MemoryRequirements()
+): MemoryRequirements = stak { s ->
+    memoryRequirements.run {
+        s.native {
+            nvkGetBufferMemoryRequirements(this@getBufferMemoryRequirements, buffer.L, it)
+        }
+    }
 }

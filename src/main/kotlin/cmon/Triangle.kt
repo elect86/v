@@ -2,11 +2,10 @@ package cmon
 
 import classes.*
 import extensions.*
+import glm_.L
 import glm_.vec2.Vec2
 import glm_.vec2.Vec2i
-import kool.indices
-import kool.rem
-import kool.reset
+import kool.*
 import main_.VKUtil.*
 import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.glfw.GLFWWindowSizeCallback
@@ -25,6 +24,7 @@ import uno.glfw.glfw
 import uno.glfw.windowHint.Api
 import vkk.*
 import vkk.entities.*
+import vkk.extensionFunctions.getBufferMemoryRequirements as _
 import vkk.extensionFunctions.*
 import java.io.IOException
 import java.nio.IntBuffer
@@ -373,51 +373,27 @@ fun createVertices(device: VkDevice, deviceMemoryProperties: VkPhysicalDeviceMem
     Vec2(+0.5f, -0.5f).to(vertexBuffer, Vec2.size)
     Vec2(+0.0f, +0.5f).to(vertexBuffer, Vec2.size * 2)
 
-    var err: Int
-
     // Generate vertex buffer
     //  Setup
-    val bufInfo = BufferCreateInfo(size = VkDeviceSize(vertexBuffer.rem), usageFlags = VkBufferUsage.VERTEX_BUFFER_BIT.i)
+    val bufInfo =
+        BufferCreateInfo(size = VkDeviceSize(vertexBuffer.rem), usageFlags = VkBufferUsage.VERTEX_BUFFER_BIT.i)
     val verticesBuf = device createBuffer bufInfo
 
-    val memAlloc = MemoryAllocateInfo()
     val memReqs = device.getBufferMemoryRequirements(verticesBuf)
-    vkGetBufferMemoryRequirements(device, verticesBuf, memReqs)
-    memAlloc.allocationSize(memReqs.size())
-    val memoryTypeIndex = memAllocInt(1)
-    Triangle.getMemoryType(
+    val (memoryTypeIndex, _) = getMemoryType(
         deviceMemoryProperties,
-        memReqs.memoryTypeBits(),
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-        memoryTypeIndex
+        memReqs.memoryTypeBits,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
     )
-    memAlloc.memoryTypeIndex(memoryTypeIndex.get(0))
-    memFree(memoryTypeIndex)
-    memReqs.free()
+    val memAlloc = MemoryAllocateInfo(allocationSize = memReqs.size, memoryTypeIndex = memoryTypeIndex)
 
-    val pMemory = memAllocLong(1)
-    err = vkAllocateMemory(device, memAlloc, null, pMemory)
-    val verticesMem = pMemory.get(0)
-    memFree(pMemory)
-    if (err != VK_SUCCESS) {
-        throw AssertionError("Failed to allocate vertex memory: " + translateVulkanResult(err))
-    }
+    val verticesMem = device allocateMemory memAlloc
 
-    val pData = memAllocPointer(1)
-    err = vkMapMemory(device, verticesMem, 0, memAlloc.allocationSize(), 0, pData)
-    val data = pData.get(0)
-    memFree(pData)
-    if (err != VK_SUCCESS) {
-        throw AssertionError("Failed to map vertex memory: " + translateVulkanResult(err))
+    device.mappedMemory(verticesMem, VkDeviceSize(0), memAlloc.allocationSize) { data ->
+        memCopy(vertexBuffer.adr, data, vertexBuffer.rem.L)
     }
-
-    memCopy(memAddress(vertexBuffer), data, vertexBuffer.remaining().toLong())
-    memFree(vertexBuffer)
-    vkUnmapMemory(device, verticesMem)
-    err = vkBindBufferMemory(device, verticesBuf.L, verticesMem, 0)
-    if (err != VK_SUCCESS) {
-        throw AssertionError("Failed to bind memory to vertex buffer: " + translateVulkanResult(err))
-    }
+    vertexBuffer.free()
+    device.bindBufferMemory(verticesBuf, verticesMem)
 
     // Binding description
     val bindingDescriptor = VkVertexInputBindingDescription.calloc(1)
@@ -445,6 +421,21 @@ fun createVertices(device: VkDevice, deviceMemoryProperties: VkPhysicalDeviceMem
     ret.createInfo = vi
     ret.verticesBuf = verticesBuf.L
     return ret
+}
+
+fun getMemoryType(
+    deviceMemoryProperties: VkPhysicalDeviceMemoryProperties,
+    typeBits: Int,
+    properties: Int
+): Pair<Int, Boolean> {
+    var bits = typeBits
+    for (i in 0..31) {
+        if (bits and 1 == 1)
+            if (deviceMemoryProperties.memoryTypes[i].propertyFlags and properties == properties)
+                return i to true
+        bits = bits shr 1
+    }
+    return 0 to false
 }
 
 object Triangle {
@@ -713,24 +704,6 @@ object Triangle {
             .pName(memUTF8("main"))
     }
 
-    fun getMemoryType(
-        deviceMemoryProperties: VkPhysicalDeviceMemoryProperties?,
-        typeBits: Int,
-        properties: Int,
-        typeIndex: IntBuffer
-    ): Boolean {
-        var bits = typeBits
-        for (i in 0..31) {
-            if (bits and 1 == 1) {
-                if (deviceMemoryProperties!!.memoryTypes(i).propertyFlags() and properties == properties) {
-                    typeIndex.put(0, i)
-                    return true
-                }
-            }
-            bits = bits shr 1
-        }
-        return false
-    }
 
     class Vertices {
         internal var verticesBuf: Long = 0
