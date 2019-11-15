@@ -58,7 +58,7 @@ dependencies {
     ["", "-glfw", "-jemalloc", "-openal", "-opengl", "-stb", "-vulkan", "-shaderc"].each {
         implementation "org.lwjgl:lwjgl$it:$lwjgl_version"
         if(it != "-vulkan")
-            runtimeOnly "org.lwjgl:lwjgl$it:$lwjgl_version:natives-$lwjgl_natives"
+            implementation "org.lwjgl:lwjgl$it:$lwjgl_version:natives-$lwjgl_natives"
     }
 
 //    ext.spirvCross = "graphics.scenery:spirvcrossj:0.5.0-1.1.85"
@@ -87,6 +87,10 @@ task javadocJar(type: Jar, dependsOn: javadoc) {
 artifacts {
     archives sourcesJar
 //    archives javadocJar
+}
+
+sourceSets {
+    main.output.resourcesDir = main.java.outputDir
 }
 
 compileKotlin {

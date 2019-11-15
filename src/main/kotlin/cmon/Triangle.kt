@@ -5,12 +5,13 @@ import extensions.*
 import glm_.L
 import glm_.vec2.Vec2
 import glm_.vec2.Vec2i
+import identifiers.Instance
+import identifiers.PhysicalDevice
 import kool.*
 import main_.VKUtil.*
 import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.glfw.GLFWWindowSizeCallback
 import org.lwjgl.system.MemoryStack
-import org.lwjgl.system.MemoryUtil
 import org.lwjgl.system.MemoryUtil.*
 import org.lwjgl.vulkan.*
 import org.lwjgl.vulkan.EXTDebugReport.VK_EXT_DEBUG_REPORT_EXTENSION_NAME
@@ -22,12 +23,12 @@ import uno.createSurface
 import uno.glfw.GlfwWindow
 import uno.glfw.glfw
 import uno.glfw.windowHint.Api
+import util.createSurface
 import vkk.*
 import vkk.entities.*
-import vkk.extensionFunctions.getBufferMemoryRequirements as _
 import vkk.extensionFunctions.*
+import vkk.extensionFunctions.getBufferMemoryRequirements as _
 import java.io.IOException
-import java.nio.IntBuffer
 
 fun main() {
 
@@ -42,7 +43,7 @@ fun main() {
     val instance = createInstance(requiredExtensions)
     DebugReportCallback.callback =
         { _, _, _, _, _, _, message: String, _ -> System.err.println("ERROR OCCURED: $message") }
-    val debugCallbackHandle = setupDebugging(instance, VkDebugReport.ERROR_BIT_EXT or VkDebugReport.WARNING_BIT_EXT)
+//    val debugCallbackHandle = setupDebugging(instance, VkDebugReport.ERROR_BIT_EXT or VkDebugReport.WARNING_BIT_EXT)
     val physicalDevice = instance.enumeratePhysicalDevices[0]
     val (device, queueFamilyIndex, memoryProperties) = createDeviceAndGetGraphicsQueueFamily(physicalDevice)
 
@@ -236,7 +237,7 @@ fun main() {
     memFree(pSwapchains)
     memFree(pCommandBuffers)
 
-    vkDestroyDebugReportCallbackEXT(instance, debugCallbackHandle.L, null)
+//    vkDestroyDebugReportCallbackEXT(instance, debugCallbackHandle.L, null)
 
 //    windowSizeCallback.free()
 //    Callbacks.glfwFreeCallbacks(window.handle.L)
@@ -247,32 +248,30 @@ fun main() {
     // Let the OS process manager take care of it.
 }
 
-fun createInstance(requiredExtensions: ArrayList<String>): VkInstance {
+fun createInstance(requiredExtensions: ArrayList<String>): Instance {
     val appInfo = ApplicationInfo(apiVersion = VK_API_VERSION_1_0)
     requiredExtensions += VK_EXT_DEBUG_REPORT_EXTENSION_NAME
     val enabledLayerNames = listOf("VK_LAYER_LUNARG_standard_validation")
     val createInfo = InstanceCreateInfo(appInfo, enabledLayerNames, requiredExtensions)
-    return v createInstance createInfo
+    return Instance(createInfo)
 }
 
-fun setupDebugging(instance: VkInstance, flags: VkDebugReportFlagsEXT): VkDebugReportCallback {
-    val dbgCreateInfo = DebugReportCallbackCreateInfo(flags)
-    return instance createDebugReportCallback dbgCreateInfo
-}
+//fun setupDebugging(instance: VkInstance, flags: VkDebugReportFlagsEXT): VkDebugReportCallback {
+//    val dbgCreateInfo = DebugReportCallbackCreateInfo(flags)
+//    return instance createDebugReportCallback dbgCreateInfo
+//}
 
-fun createDeviceAndGetGraphicsQueueFamily(physicalDevice: VkPhysicalDevice): Triple<VkDevice, Int, VkPhysicalDeviceMemoryProperties> {
+fun createDeviceAndGetGraphicsQueueFamily(physicalDevice: PhysicalDevice): Triple<VkDevice, Int, VkPhysicalDeviceMemoryProperties> {
     val queueProps = physicalDevice.queueFamilyProperties
     var graphicsQueueFamilyIndex = 0
-    while (graphicsQueueFamilyIndex < queueProps.rem) {
+    while (graphicsQueueFamilyIndex < queueProps.size) {
         if (queueProps[graphicsQueueFamilyIndex].queueFlags has VkQueueFlag.GRAPHICS_BIT)
             break
         graphicsQueueFamilyIndex++
     }
     val queuePriority = 0f
-    val queueCreateInfo = DeviceQueueCreateInfo(
-        queueFamilyIndex = graphicsQueueFamilyIndex,
-        queuePriority = queuePriority
-    )
+    val queueCreateInfo =
+        DeviceQueueCreateInfo(queueFamilyIndex = graphicsQueueFamilyIndex, queuePriority = queuePriority)
 
     val extensions = arrayListOf(VK_KHR_SWAPCHAIN_EXTENSION_NAME)
 //    val enabledLayerNames = Triangle.layers
@@ -774,8 +773,8 @@ object Triangle {
 
         // Load shaders
         val shaderStages = VkPipelineShaderStageCreateInfo.calloc(2)
-        shaderStages.get(0).set(loadShader(device, "a/triangle.vert", VK_SHADER_STAGE_VERTEX_BIT))
-        shaderStages.get(1).set(loadShader(device, "a/triangle.frag", VK_SHADER_STAGE_FRAGMENT_BIT))
+        shaderStages.get(0).set(loadShader(device, "triangle.vert", VK_SHADER_STAGE_VERTEX_BIT))
+        shaderStages.get(1).set(loadShader(device, "triangle.frag", VK_SHADER_STAGE_FRAGMENT_BIT))
 
         // Create the pipeline layout that is used to generate the rendering pipelines that
         // are based on this descriptor set layout

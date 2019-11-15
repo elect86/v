@@ -6,8 +6,7 @@ import org.lwjgl.system.MemoryStack
 import org.lwjgl.system.MemoryUtil
 import org.lwjgl.system.MemoryUtil.*
 import org.lwjgl.vulkan.*
-import org.lwjgl.vulkan.VkInstanceCreateInfo.PAPPLICATIONINFO
-import org.lwjgl.vulkan.VkInstanceCreateInfo.callocStack
+import org.lwjgl.vulkan.VkInstanceCreateInfo.*
 import util.PointerBuffer
 import vkk.VkStructureType
 
@@ -77,11 +76,12 @@ class InstanceCreateInfo(
         return this
     }
 
-    val MemoryStack.native: VkInstanceCreateInfo
-        get() = callocStack(this)
-            .sType(type.i)
-            .pNext(next)
-            .apply { memPutAddress(adr + PAPPLICATIONINFO, applicationInfo?.run { native } ?: NULL) }
-            .ppEnabledLayerNames(PointerBuffer(enabledLayerNames))
-            .ppEnabledExtensionNames(PointerBuffer(enabledExtensionNames))
+    val MemoryStack.native: Ptr
+        get() = ncalloc(ALIGNOF, 1, SIZEOF).also {
+            nsType(it, type.i)
+            npNext(it, next)
+            memPutAddress(it + PAPPLICATIONINFO, applicationInfo?.run { native } ?: NULL)
+            nppEnabledLayerNames(it, PointerBuffer(enabledLayerNames))
+            nppEnabledExtensionNames(it, PointerBuffer(enabledExtensionNames))
+        }
 }

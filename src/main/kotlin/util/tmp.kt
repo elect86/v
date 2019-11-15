@@ -5,15 +5,19 @@ import glm_.BYTES
 import glm_.L
 import glm_.b
 import glm_.i
-import kool.PointerBuffer
-import kool.Ptr
-import kool.adr
-import kool.set
+import identifiers.Instance
+import identifiers.PhysicalDevice
+import kool.*
 import org.lwjgl.PointerBuffer
+import org.lwjgl.glfw.GLFWVulkan
 import org.lwjgl.system.MemoryStack
 import org.lwjgl.system.MemoryUtil.*
 import org.lwjgl.system.Pointer
 import org.lwjgl.vulkan.*
+import uno.glfw.GlfwWindow
+import vkk.VK_CHECK_RESULT
+import vkk.entities.VkSurfaceKHR
+import vkk.stak
 import java.nio.LongBuffer
 
 @JvmName("PointerBufferSafe")
@@ -186,4 +190,20 @@ fun Array<SubpassDependency>.native(stack: MemoryStack): Ptr {
     for (i in indices)
         this[i] toPtr (natives + i * VkSubpassDependency.SIZEOF)
     return natives
+}
+
+infix fun GlfwWindow.createSurface(instance: Instance): VkSurfaceKHR = stak {
+    VkSurfaceKHR(stak.longAddress {
+        VK_CHECK_RESULT(GLFWVulkan.nglfwCreateWindowSurface(instance.adr, handle.L, NULL, it))
+    })
+}
+
+class VkPhysicalDevice_Buffer(val buffer: PointerBuffer, val instance: Instance) {
+    val rem get() = buffer.rem
+    val adr: Adr get() = buffer.adr // TODO -> Adr
+
+    operator fun get(index: Int) = PhysicalDevice(buffer[index], instance)
+    operator fun set(index: Int, vkPhysicalDevice: PhysicalDevice) {
+        buffer.put(index, vkPhysicalDevice.adr)
+    }
 }

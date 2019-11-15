@@ -1,10 +1,10 @@
 module untitled.main {
 
-    requires org.lwjgl;
-    requires org.lwjgl.shaderc;
+    requires org.lwjgl.natives;
+    requires org.lwjgl.shaderc.natives;
     requires org.lwjgl.vulkan;
-    requires org.lwjgl.glfw;
-    requires org.lwjgl.jemalloc;
+    requires org.lwjgl.glfw.natives;
+    requires org.lwjgl.jemalloc.natives;
 
 //    requires com.github.kotlin_graphics.glm;
 //    requires com.github.kotlin_graphics.vkk;

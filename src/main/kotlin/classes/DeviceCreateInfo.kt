@@ -91,13 +91,14 @@ class DeviceCreateInfo(
         next: Ptr = NULL
     ) : this(flags, arrayOf(queueCreateInfo), enabledExtensionNames, enabledFeatures, next)
 
-    val MemoryStack.native: VkDeviceCreateInfo
-        get() = callocStack(this)
-            .sType(type.i)
-            .flags(flags)
-            .pNext(next)
-            .pQueueCreateInfos(queueCreateInfos.native(this))
+    val MemoryStack.native: Ptr
+        get() = ncalloc(ALIGNOF, 1, SIZEOF).also {
+            nsType(it, type.i)
+            nflags(it, flags)
+            npNext(next)
+            npQueueCreateInfos(queueCreateInfos.native(this))
             .ppEnabledExtensionNames(PointerBuffer(enabledExtensionNames)).apply {
                 memPutAddress(adr + PENABLEDFEATURES, enabledFeatures?.run { native } ?: NULL)
             }
+        }
 }

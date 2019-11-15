@@ -110,6 +110,7 @@ class RenderPassCreateInfo(
         get() = ncalloc(ALIGNOF, 1, SIZEOF).also { toPtr(it) }
 
     infix fun MemoryStack.toPtr(ptr: Ptr) {
+        nsType(ptr, type.i)
         nflags(ptr, flags)
         nattachmentCount(ptr, attachments?.size ?: 0)
         memPutAddress(ptr + PATTACHMENTS, attachments?.run { native(this@toPtr) } ?: NULL)
