@@ -13,13 +13,9 @@ import org.lwjgl.system.FunctionProvider
 import org.lwjgl.system.JNI.*
 import org.lwjgl.system.MemoryStack.stackPush
 import org.lwjgl.system.MemoryUtil.*
-import org.lwjgl.vulkan.VK10
 import org.lwjgl.vulkan.VK10.VK_SUCCESS
-import org.lwjgl.vulkan.VkAllocationCallbacks
 import org.lwjgl.vulkan.VkExtensionProperties
-import org.lwjgl.vulkan.VkInstanceCreateInfo
 import util.VkPhysicalDevice_Buffer
-import vkk.VK_CHECK_RESULT
 import vkk.VkResult
 import vkk.stak
 import java.util.*
@@ -33,7 +29,7 @@ class Instance
  * @param ci     the {@link VkInstanceCreateInfo} structured used to create the {@code VkInstance}.
  */
 private constructor(handle: Ptr, ci: InstanceCreateInfo) :
-    DispatchableHandleInstance(handle, getInstanceCapabilities(handle, ci)) {
+    Dispatchable(handle, getInstanceCapabilities(handle, ci)) {
 
     constructor(createInfo: InstanceCreateInfo) : this(
         stak { s ->

@@ -168,18 +168,21 @@ object VK {
         return true
     }
 
-    fun isSupported(
-        provider: FunctionProvider, functionName: String, caps: MutableMap<String, Long>, satisfiedDependency: Boolean
-    ): Boolean = !satisfiedDependency || isSupported(provider, functionName, caps)
-
-    fun isSupported(provider: FunctionProvider, functionName: String, caps: MutableMap<String, Long>): Boolean {
-        val address = provider.getFunctionAddress(functionName)
-        if (address != NULL) {
-            caps[functionName] = address
-            return true
-        }
-        return false
-    }
-
     fun get(caps: MutableMap<String, Long>, functionName: String) = caps[functionName] ?: NULL
+}
+
+fun FunctionProvider.isSupported(
+    functionName: String,
+    caps: MutableMap<String, Long>,
+    satisfiedDependency: Boolean
+): Boolean =
+    !satisfiedDependency || isSupported(functionName, caps)
+
+fun FunctionProvider.isSupported(functionName: String, caps: MutableMap<String, Long>): Boolean {
+    val address = getFunctionAddress(functionName)
+    if (address != NULL) {
+        caps[functionName] = address
+        return true
+    }
+    return false
 }

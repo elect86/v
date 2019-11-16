@@ -66,8 +66,8 @@ import vkk.VkStructureType
  * VkDeviceCreateFlags flags;
  * uint32_t queueCreateInfoCount;
  * [VkDeviceQueueCreateInfo] const * pQueueCreateInfos;
- * uint32_t enabledLayerCount;
- * char const * const * ppEnabledLayerNames;
+ * uint32_t enabledLayerCount;                  deprecated and ignored
+ * char const * const * ppEnabledLayerNames;    deprecated and ignored
  * uint32_t enabledExtensionCount;
  * char const * const * ppEnabledExtensionNames;
  * [VkPhysicalDeviceFeatures] const * pEnabledFeatures;
@@ -94,11 +94,10 @@ class DeviceCreateInfo(
     val MemoryStack.native: Ptr
         get() = ncalloc(ALIGNOF, 1, SIZEOF).also {
             nsType(it, type.i)
+            npNext(it, next)
             nflags(it, flags)
-            npNext(next)
-            npQueueCreateInfos(queueCreateInfos.native(this))
-            .ppEnabledExtensionNames(PointerBuffer(enabledExtensionNames)).apply {
-                memPutAddress(adr + PENABLEDFEATURES, enabledFeatures?.run { native } ?: NULL)
-            }
+            npQueueCreateInfos(it, queueCreateInfos.native(this))
+            nppEnabledExtensionNames(it, PointerBuffer(enabledExtensionNames))
+            memPutAddress(adr + PENABLEDFEATURES, enabledFeatures?.run { native } ?: NULL)
         }
 }

@@ -7,13 +7,11 @@ import kool.Adr
 import kool.Ptr
 import kool.adr
 import kool.rem
-import org.lwjgl.system.Checks
 import org.lwjgl.system.JNI.callPPPPI
 import org.lwjgl.system.JNI.callPPPV
 import org.lwjgl.system.MemoryUtil.NULL
 import org.lwjgl.system.MemoryUtil.memGetInt
 import org.lwjgl.vulkan.*
-import vkk.VK_CHECK_RESULT
 import vkk.VkResult
 import vkk.stak
 
@@ -28,7 +26,7 @@ class PhysicalDevice
     handle: Adr,
     /** Returns the Vulkan instance from which this physical device was enumerated.  */
     val instance: Instance
-) : DispatchableHandleInstance(handle, instance.capabilities) {
+) : Dispatchable(handle, instance.capabilities) {
 
     // --- [ vkCreateDevice ] ---
     fun nCreateDevice(pCreateInfo: Ptr, pDevice: Ptr): VkResult =
@@ -36,7 +34,7 @@ class PhysicalDevice
 
     infix fun createDevice(createInfo: DeviceCreateInfo): VkDevice = stak { s ->
         VkDevice(
-            s.pointerAddress { VK_CHECK_RESULT(nCreateDevice(createInfo.run { s.native }, NULL, it)) },
+            s.pointerAddress { nCreateDevice(createInfo.run { s.native }, it).apply { check() } },
             this,
             createInfo
         )

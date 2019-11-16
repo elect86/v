@@ -270,8 +270,7 @@ fun createDeviceAndGetGraphicsQueueFamily(physicalDevice: PhysicalDevice): Tripl
         graphicsQueueFamilyIndex++
     }
     val queuePriority = 0f
-    val queueCreateInfo =
-        DeviceQueueCreateInfo(queueFamilyIndex = graphicsQueueFamilyIndex, queuePriority = queuePriority)
+    val queueCreateInfo = DeviceQueueCreateInfo(graphicsQueueFamilyIndex, queuePriority = queuePriority)
 
     val extensions = arrayListOf(VK_KHR_SWAPCHAIN_EXTENSION_NAME)
 //    val enabledLayerNames = Triangle.layers
