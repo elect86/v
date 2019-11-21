@@ -2,6 +2,8 @@ package classes
 
 import glm_.BYTES
 import kool.Ptr
+import kool.adr
+import kool.toBuffer
 import org.lwjgl.system.MemoryStack
 import org.lwjgl.system.MemoryUtil
 import org.lwjgl.system.MemoryUtil.*
@@ -124,6 +126,7 @@ class PresentInfoKHR(
         }
         nswapchainCount(ptr, swapchains.size)
         memPutAddress(ptr + PSWAPCHAINS, swapchains.native(stack))
+        memPutAddress(ptr + PIMAGEINDICES, imageIndices.toBuffer(stack).adr)
         return when(val results = results) {
             null -> block(ptr)
             else -> {
