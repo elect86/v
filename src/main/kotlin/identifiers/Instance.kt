@@ -1,7 +1,8 @@
 package identifiers
 
+import classes.DebugReportCallbackCreateInfo
 import classes.InstanceCreateInfo
-import glm_.BYTES
+import classes.SurfaceCapabilitiesKHR
 import kool.PointerBuffer
 import kool.Ptr
 import kool.adr
@@ -15,8 +16,14 @@ import org.lwjgl.system.MemoryStack.stackPush
 import org.lwjgl.system.MemoryUtil.*
 import org.lwjgl.vulkan.VK10.VK_SUCCESS
 import org.lwjgl.vulkan.VkExtensionProperties
-import util.VkPhysicalDevice_Buffer
+import util.PhysicalDevice_Buffer
+import util.longAddress
+import util.nmallocInt
+import util.pointerAddress
+import vkk.VK_CHECK_RESULT
 import vkk.VkResult
+import vkk.entities.VkDebugReportCallback
+import vkk.entities.VkSurfaceKHR
 import vkk.stak
 import java.util.*
 
@@ -33,24 +40,28 @@ private constructor(handle: Ptr, ci: InstanceCreateInfo) :
 
     constructor(createInfo: InstanceCreateInfo) : this(
         stak { s ->
-            s.callocPointer(1).also {
-                nCreateInstance(createInfo.run { s.native }, it.adr).apply { check() }
+            s.pointerAddress {
+                VK_CHECK_RESULT(callPPPI(createInfo.run { s.native }, NULL, it, VK.globalCommands!!.vkCreateInstance))
             }
-        }[0], createInfo
+        }, createInfo
     )
+
+    // --- [ vkCreateDebugReportCallbackEXT ] ---
+    infix fun createDebugReportCallback(createInfo: DebugReportCallbackCreateInfo): VkDebugReportCallback =
+        stak { s ->
+            VkDebugReportCallback(s.longAddress {
+                VK_CHECK_RESULT(callPPPPI(adr, createInfo.run { s.native }, NULL, it, capabilities.vkCreateDebugReportCallbackEXT))
+            })
+        }
 
     // --- [ vkEnumeratePhysicalDevices ] ---
     inline fun nEnumeratePhysicalDevices(pPhysicalDeviceCount: Ptr, pPhysicalDevices: Ptr): VkResult =
         VkResult(callPPPI(adr, pPhysicalDeviceCount, pPhysicalDevices, capabilities.vkEnumeratePhysicalDevices))
 
-    fun enumeratePhysicalDevices(physicalDevices: VkPhysicalDevice_Buffer): VkResult =
-        stak.intAddress(physicalDevices.rem) { nEnumeratePhysicalDevices(it, physicalDevices.adr) }.apply { check() }
-
-    inline fun <reified T> enumeratePhysicalDevices(): T = when (T::class) {
-        Int::class -> stak.intAddress { nEnumeratePhysicalDevices(it, NULL) } as T
-        VkPhysicalDevice_Buffer::class -> stak {
+    val enumeratePhysicalDevices: PhysicalDevice_Buffer
+        get() = stak {
             lateinit var physicalDevices: PointerBuffer
-            val pPhysicalDeviceGroupCount = it.nmalloc(4, Int.BYTES)
+            val pPhysicalDeviceGroupCount = it.nmallocInt()
             var result: VkResult
             do {
                 result = nEnumeratePhysicalDevices(pPhysicalDeviceGroupCount, NULL).apply { check() }
@@ -60,19 +71,8 @@ private constructor(handle: Ptr, ci: InstanceCreateInfo) :
                     result = nEnumeratePhysicalDevices(pPhysicalDeviceGroupCount, physicalDevices.adr)
                 }
             } while (result == VkResult.INCOMPLETE)
-            VkPhysicalDevice_Buffer(physicalDevices, this) as T
+            PhysicalDevice_Buffer(physicalDevices, this)
         }
-        else -> throw Exception("[VkInstance::enumeratePhysicalDevices] Invalid T")
-    }
-
-    val enumeratePhysicalDevices: VkPhysicalDevice_Buffer
-        get() = enumeratePhysicalDevices()
-
-    companion object {
-        // --- [ vkCreateInstance ] ---
-        fun nCreateInstance(pCreateInfo: Long, pInstance: Long) =
-            VkResult(callPPPI(pCreateInfo, NULL, pInstance, VK.globalCommands!!.vkCreateInstance))
-    }
 }
 
 private fun getInstanceCapabilities(handle: Ptr, ci: InstanceCreateInfo): CapabilitiesInstance {

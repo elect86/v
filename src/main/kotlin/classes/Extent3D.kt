@@ -1,9 +1,7 @@
 package classes
 
 import kool.Ptr
-import org.lwjgl.vulkan.VkExtent3D
 import org.lwjgl.vulkan.VkExtent3D.*
-import org.lwjgl.vulkan.VkQueueFamilyProperties
 
 /**
  * Structure specifying a three-dimensional extent.
@@ -31,7 +29,5 @@ class Extent3D(
     var depth: Int
 ) {
 
-    companion object {
-        fun from(ptr: Ptr) = Extent3D(nwidth(ptr), nheight(ptr), ndepth(ptr))
-    }
+    constructor(ptr: Ptr) : this(nwidth(ptr), nheight(ptr), ndepth(ptr))
 }

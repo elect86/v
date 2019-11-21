@@ -5,7 +5,6 @@ import org.lwjgl.system.MemoryStack
 import org.lwjgl.system.MemoryUtil.NULL
 import org.lwjgl.system.MemoryUtil.memPutAddress
 import org.lwjgl.vulkan.VkRenderPassCreateInfo.*
-import util.native
 import vkk.VkRenderPassCreateFlags
 import vkk.VkStructureType
 

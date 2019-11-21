@@ -123,3 +123,10 @@ class SubpassDependency(
         ndependencyFlags(ptr, dependencyFlags)
     }
 }
+
+fun Array<SubpassDependency>.native(stack: MemoryStack): Ptr {
+    val natives = stack.ncalloc(ALIGNOF, size, SIZEOF)
+    for (i in indices)
+        this[i] toPtr (natives + i * SIZEOF)
+    return natives
+}

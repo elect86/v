@@ -1,14 +1,12 @@
 package classes
 
 import kool.Ptr
-import kool.adr
 import org.lwjgl.system.MemoryStack
-import org.lwjgl.system.MemoryUtil
-import org.lwjgl.system.MemoryUtil.*
+import org.lwjgl.system.MemoryUtil.NULL
+import org.lwjgl.system.MemoryUtil.memPutAddress
 import org.lwjgl.vulkan.*
 import org.lwjgl.vulkan.VkDeviceCreateInfo.*
 import util.PointerBuffer
-import util.native
 import vkk.VkDeviceCreateFlags
 import vkk.VkStructureType
 
@@ -92,12 +90,12 @@ class DeviceCreateInfo(
     ) : this(flags, arrayOf(queueCreateInfo), enabledExtensionNames, enabledFeatures, next)
 
     val MemoryStack.native: Ptr
-        get() = ncalloc(ALIGNOF, 1, SIZEOF).also {
-            nsType(it, type.i)
-            npNext(it, next)
-            nflags(it, flags)
-            npQueueCreateInfos(it, queueCreateInfos.native(this))
-            nppEnabledExtensionNames(it, PointerBuffer(enabledExtensionNames))
-            memPutAddress(adr + PENABLEDFEATURES, enabledFeatures?.run { native } ?: NULL)
+        get() = ncalloc(ALIGNOF, 1, SIZEOF).also { p ->
+            nsType(p, type.i)
+            npNext(p, next)
+            nflags(p, flags)
+            memPutAddress(p + PQUEUECREATEINFOS, queueCreateInfos.native(this)); nqueueCreateInfoCount(p, queueCreateInfos.size)
+            nppEnabledExtensionNames(p, PointerBuffer(enabledExtensionNames))
+            enabledFeatures?.let { memPutAddress(p + PENABLEDFEATURES, it.run { native }) }
         }
 }

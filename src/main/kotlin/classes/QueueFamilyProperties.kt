@@ -1,8 +1,7 @@
 package classes
 
 import kool.Ptr
-import org.lwjgl.vulkan.VkExtent3D
-import org.lwjgl.vulkan.VkQueueFamilyProperties
+import org.lwjgl.system.MemoryStack
 import org.lwjgl.vulkan.VkQueueFamilyProperties.*
 import vkk.VkQueueFlags
 
@@ -71,12 +70,14 @@ class QueueFamilyProperties(
     var minImageTransferGranularity: Extent3D
 ) {
 
+    constructor(ptr: Ptr) : this(
+        nqueueFlags(ptr),
+        nqueueCount(ptr),
+        ntimestampValidBits(ptr),
+        Extent3D(ptr + MINIMAGETRANSFERGRANULARITY)
+    )
+
     companion object {
-        fun from(ptr: Ptr) = QueueFamilyProperties(
-            nqueueFlags(ptr),
-            nqueueFlags(ptr),
-            ntimestampValidBits(ptr),
-            Extent3D.from(ptr + MINIMAGETRANSFERGRANULARITY)
-        )
+        inline fun ncalloc(stack: MemoryStack, num: Int = 1): Ptr = stack.ncalloc(ALIGNOF, num, SIZEOF)
     }
 }

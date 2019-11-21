@@ -60,3 +60,10 @@ class AttachmentReference(
             nlayout(it, layout.i)
         }
 }
+
+fun Array<AttachmentReference>.native(stack: MemoryStack): Ptr {
+    val natives = stack.ncalloc(ALIGNOF, size, SIZEOF)
+    for (i in indices)
+        this[i] toPtr (natives + i * SIZEOF)
+    return natives
+}

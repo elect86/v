@@ -1,6 +1,7 @@
 package identifiers
 
 import glm_.min
+import kool.Ptr
 import kool.adr
 import org.lwjgl.system.*
 import org.lwjgl.system.APIUtil.apiLog
@@ -136,7 +137,7 @@ object VK {
         }
     }
 
-    fun getEnabledExtensionSet(apiVersion: Int, extensionNames: List<String>?): Set<String> {
+    fun getEnabledExtensionSet(apiVersion: Int, extensionNames: Collection<String>?): Set<String> {
         val enabledExtensions = HashSet<String>(16)
 
         val majorVersion = VK_VERSION_MAJOR(apiVersion)
@@ -147,11 +148,11 @@ object VK {
         )
 
         val maxMajor = majorVersion min VK_VERSIONS.size
-        for (M in 1 until maxMajor) {
+        for (M in 1..maxMajor) {
             var maxMinor = VK_VERSIONS[M - 1]
             if (M == majorVersion)
                 maxMinor = min(minorVersion, maxMinor)
-            for (m in 0 until maxMinor)
+            for (m in 0..maxMinor)
                 enabledExtensions += "Vulkan$M$m"
         }
 
@@ -167,8 +168,6 @@ object VK {
         }
         return true
     }
-
-    fun get(caps: MutableMap<String, Long>, functionName: String) = caps[functionName] ?: NULL
 }
 
 fun FunctionProvider.isSupported(

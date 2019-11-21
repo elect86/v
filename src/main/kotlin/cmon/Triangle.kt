@@ -1,33 +1,31 @@
 package cmon
 
 import classes.*
-import extensions.*
 import glm_.L
 import glm_.vec2.Vec2
 import glm_.vec2.Vec2i
-import identifiers.Instance
-import identifiers.PhysicalDevice
-import kool.*
-import main_.VKUtil.*
+import glm_.vec3.Vec3i
+import identifiers.*
+import kool.adr
+import kool.free
+import kool.rem
+import main_.VKUtil.glslToSpirv
+import main_.VKUtil.translateVulkanResult
 import org.lwjgl.glfw.GLFW.*
-import org.lwjgl.glfw.GLFWWindowSizeCallback
-import org.lwjgl.system.MemoryStack
+import org.lwjgl.glfw.GLFWWindowSizeCallbackI
 import org.lwjgl.system.MemoryUtil.*
 import org.lwjgl.vulkan.*
 import org.lwjgl.vulkan.EXTDebugReport.VK_EXT_DEBUG_REPORT_EXTENSION_NAME
-import org.lwjgl.vulkan.EXTDebugReport.vkDestroyDebugReportCallbackEXT
-import org.lwjgl.vulkan.KHRSurface.*
-import org.lwjgl.vulkan.KHRSwapchain.*
+import org.lwjgl.vulkan.KHRSwapchain.VK_KHR_SWAPCHAIN_EXTENSION_NAME
 import org.lwjgl.vulkan.VK10.*
-import uno.createSurface
 import uno.glfw.GlfwWindow
 import uno.glfw.glfw
 import uno.glfw.windowHint.Api
+import util.VkDeviceSize
+import util.bufferOf
 import util.createSurface
 import vkk.*
 import vkk.entities.*
-import vkk.extensionFunctions.*
-import vkk.extensionFunctions.getBufferMemoryRequirements as _
 import java.io.IOException
 
 fun main() {
@@ -43,7 +41,7 @@ fun main() {
     val instance = createInstance(requiredExtensions)
     DebugReportCallback.callback =
         { _, _, _, _, _, _, message: String, _ -> System.err.println("ERROR OCCURED: $message") }
-//    val debugCallbackHandle = setupDebugging(instance, VkDebugReport.ERROR_BIT_EXT or VkDebugReport.WARNING_BIT_EXT)
+    val debugCallbackHandle = setupDebugging(instance, VkDebugReport.ERROR_BIT_EXT or VkDebugReport.WARNING_BIT_EXT)
     val physicalDevice = instance.enumeratePhysicalDevices[0]
     val (device, queueFamilyIndex, memoryProperties) = createDeviceAndGetGraphicsQueueFamily(physicalDevice)
 
@@ -64,72 +62,57 @@ fun main() {
     val (format, colorSpace) = getFormatAndColorSpace(physicalDevice, surface)
     val commandPool = createCommandPool(device, queueFamilyIndex)
     val cmdBufAllocateInfo = CommandBufferAllocateInfo(commandPool)
-    val setupCommandBuffer: VkCommandBuffer = device allocateCommandBuffers cmdBufAllocateInfo
+    val setupCommandBuffer = device allocateCommandBuffer cmdBufAllocateInfo
     val queue = device.getQueue(queueFamilyIndex)
     val renderPass = createRenderPass(device, format)
     val renderCommandPool = createCommandPool(device, queueFamilyIndex)
-    val vertices = createVertices(device, memoryProperties)
-    val pipeline = Triangle.createPipeline(device, renderPass.L, vertices.createInfo)
+    val (vertexBuffer, pipelineInfo) = createVertices(device, memoryProperties)
+    val pipeline = createPipeline(device, renderPass, pipelineInfo)
 
-    class SwapchainRecreator {
-        var mustRecreate = true
-        fun recreate() {
+    val swapchainRecreator = object {
+
+        var dirty = true
+
+        fun run() {
             // Begin the setup command buffer (the one we will use for swapchain/framebuffer creation)
-            val cmdBufInfo = VkCommandBufferBeginInfo.calloc()
-                .sType(VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO)
-            var err = vkBeginCommandBuffer(setupCommandBuffer, cmdBufInfo)
-            cmdBufInfo.free()
-            if (err != VK_SUCCESS) {
-                throw AssertionError("Failed to begin setup command buffer: " + translateVulkanResult(err))
+            val cmdBufInfo = CommandBufferBeginInfo()
+            setupCommandBuffer.record(cmdBufInfo) {
+                val oldChain = Triangle.swapchain
+                // Create the swapchain (this will also add a memory barrier to initialize the framebuffer images)
+                createSwapChain(
+                    device, physicalDevice, surface, oldChain, setupCommandBuffer,
+                    Triangle.size, format, colorSpace
+                )
             }
-            val oldChain = if (Triangle.swapchain != null) Triangle.swapchain!!.swapchainHandle else VK_NULL_HANDLE
-            // Create the swapchain (this will also add a memory barrier to initialize the framebuffer images)
-            Triangle.swapchain = Triangle.createSwapChain(
-                device, physicalDevice, surface.L, oldChain, setupCommandBuffer,
-                Triangle.width, Triangle.height, format.i, colorSpace.i
-            )
-            err = vkEndCommandBuffer(setupCommandBuffer)
-            if (err != VK_SUCCESS) {
-                throw AssertionError("Failed to end setup command buffer: " + translateVulkanResult(err))
-            }
-            Triangle.submitCommandBuffer(queue, setupCommandBuffer)
-            vkQueueWaitIdle(queue)
+            submitCommanBuffer(queue, setupCommandBuffer)
+            queue.waitIdle()
 
-            if (Triangle.framebuffers != null) {
-                for (i in Triangle.framebuffers!!.indices)
-                    vkDestroyFramebuffer(device!!, Triangle.framebuffers!![i], null)
-            }
-            Triangle.framebuffers =
-                Triangle.createFramebuffers(device, Triangle.swapchain!!, renderPass.L, Triangle.width, Triangle.height)
-            // Create render command buffers
-            if (Triangle.renderCommandBuffers != null) {
-                vkResetCommandPool(device!!, renderCommandPool.L, VK_FLAGS_NONE)
-            }
-            Triangle.renderCommandBuffers = Triangle.createRenderCommandBuffers(
-                device,
-                renderCommandPool.L,
-                Triangle.framebuffers!!,
-                renderPass.L,
-                Triangle.width,
-                Triangle.height,
-                pipeline,
-                vertices.verticesBuf
-            )
+            Triangle.framebuffers?.forEach { device destroy it }
+//            Triangle.framebuffers = createFramebuffers(device, Triangle.swapchain!!, renderPass.L, Triangle.width, Triangle.height)
+//            // Create render command buffers
+//            if (Triangle.renderCommandBuffers != null) {
+//                vkResetCommandPool(device!!, renderCommandPool.L, VK_FLAGS_NONE)
+//            }
+//            Triangle.renderCommandBuffers = Triangle.createRenderCommandBuffers(
+//                device,
+//                renderCommandPool.L,
+//                Triangle.framebuffers!!,
+//                renderPass.L,
+//                Triangle.width,
+//                Triangle.height,
+//                pipeline,
+//                vertices.verticesBuf
+//            )
 
-            mustRecreate = false
+            dirty = false
         }
     }
 
-    val swapchainRecreator = SwapchainRecreator()
-
     // Handle canvas resize
-    val windowSizeCallback = object : GLFWWindowSizeCallback() {
-        override operator fun invoke(window: Long, width: Int, height: Int) {
-            if (width <= 0 || height <= 0)
-                return
-            Triangle.width = width
-            Triangle.height = height
-            swapchainRecreator.mustRecreate = true
+    val windowSizeCallback = GLFWWindowSizeCallbackI { _, width, height ->
+        if (width > 0 && height > 0) {
+            Triangle.size.put(width, height)
+            swapchainRecreator.dirty = true
         }
     }
     glfwSetWindowSizeCallback(window.handle.L, windowSizeCallback)
@@ -137,112 +120,88 @@ fun main() {
 
     // Pre-allocate everything needed in the render loop
 
-    val pImageIndex = memAllocInt(1)
+    var imageIndex = 0
     var currentBuffer = 0
-    val pCommandBuffers = memAllocPointer(1)
-    val pSwapchains = memAllocLong(1)
-    val pImageAcquiredSemaphore = memAllocLong(1)
-    val pRenderCompleteSemaphore = memAllocLong(1)
+    var commandBuffer: CommandBuffer? = null
+    var swapchain = VkSwapchainKHR.NULL
+    var imageAcquiredSemaphore = VkSemaphore.NULL
+    var renderCompleteSemaphore = VkSemaphore.NULL
 
     // Info struct to create a semaphore
-    val semaphoreCreateInfo = VkSemaphoreCreateInfo.calloc()
-        .sType(VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO)
+    val semaphoreCreateInfo = SemaphoreCreateInfo()
 
     // Info struct to submit a command buffer which will wait on the semaphore
     val pWaitDstStageMask = memAllocInt(1)
     pWaitDstStageMask.put(0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
-    val submitInfo = VkSubmitInfo.calloc()
-        .sType(VK_STRUCTURE_TYPE_SUBMIT_INFO)
-        .waitSemaphoreCount(pImageAcquiredSemaphore.remaining())
-        .pWaitSemaphores(pImageAcquiredSemaphore)
-        .pWaitDstStageMask(pWaitDstStageMask)
-        .pCommandBuffers(pCommandBuffers)
-        .pSignalSemaphores(pRenderCompleteSemaphore)
+    val submitInfo = SubmitInfo(
+        waitSemaphore = imageAcquiredSemaphore,
+        waitDstStageMask = VkPipelineStage.COLOR_ATTACHMENT_OUTPUT_BIT.i,
+        commandBuffer = commandBuffer,
+        signalSemaphore = renderCompleteSemaphore
+    )
 
     // Info struct to present the current swapchain image to the display
-    val presentInfo = VkPresentInfoKHR.calloc()
-        .sType(VK_STRUCTURE_TYPE_PRESENT_INFO_KHR)
-        .pWaitSemaphores(pRenderCompleteSemaphore)
-        .swapchainCount(pSwapchains.remaining())
-        .pSwapchains(pSwapchains)
-        .pImageIndices(pImageIndex)
+    val presentInfo = PresentInfoKHR(renderCompleteSemaphore, swapchain, imageIndex)
 
     // The render loop
-    while (!glfwWindowShouldClose(window.handle.L)) {
-
+    while (!window.shouldClose) {
         // Handle window messages. Resize events happen exactly here.
         // So it is safe to use the new swapchain images and framebuffers afterwards.
         glfwPollEvents()
-        if (swapchainRecreator.mustRecreate)
-            swapchainRecreator.recreate()
+        if (swapchainRecreator.dirty)
+            swapchainRecreator.run()
 
         // Create a semaphore to wait for the swapchain to acquire the next image
-        var err = vkCreateSemaphore(device, semaphoreCreateInfo, null, pImageAcquiredSemaphore)
-        if (err != VK_SUCCESS) {
-            throw AssertionError("Failed to create image acquired semaphore: " + translateVulkanResult(err))
-        }
+        imageAcquiredSemaphore = device createSemaphore semaphoreCreateInfo
 
         // Create a semaphore to wait for the render to complete, before presenting
-        err = vkCreateSemaphore(device, semaphoreCreateInfo, null, pRenderCompleteSemaphore)
-        if (err != VK_SUCCESS) {
-            throw AssertionError("Failed to create render complete semaphore: " + translateVulkanResult(err))
-        }
+        renderCompleteSemaphore = device createSemaphore semaphoreCreateInfo
 
         // Get next image from the swap chain (back/front buffer).
         // This will setup the imageAquiredSemaphore to be signalled when the operation is complete
-        err = vkAcquireNextImageKHR(
-            device,
-            Triangle.swapchain!!.swapchainHandle,
-            Triangle.UINT64_MAX,
-            pImageAcquiredSemaphore.get(0),
-            VK_NULL_HANDLE,
-            pImageIndex
-        )
-        currentBuffer = pImageIndex.get(0)
-        if (err != VK_SUCCESS) {
-            throw AssertionError("Failed to acquire next swapchain image: " + translateVulkanResult(err))
-        }
+//        imageIndex = device.acquireNextImageKHR(Triangle.swapchain!!.handle, Triangle.UINT64_MAX, imageAcquiredSemaphore)
+//        currentBuffer = imageIndex
 
         // Select the command buffer for the current framebuffer image/attachment
-        pCommandBuffers.put(0, Triangle.renderCommandBuffers!![currentBuffer])
+//        commandBuffer = Triangle.renderCommandBuffers!![currentBuffer]
 
-        // Submit to the graphics queue
-        err = vkQueueSubmit(queue, submitInfo, VK_NULL_HANDLE)
-        if (err != VK_SUCCESS) {
-            throw AssertionError("Failed to submit render queue: " + translateVulkanResult(err))
-        }
-
-        // Present the current buffer to the swap chain
-        // This will display the image
-        pSwapchains.put(0, Triangle.swapchain!!.swapchainHandle)
-        err = vkQueuePresentKHR(queue, presentInfo)
-        if (err != VK_SUCCESS) {
-            throw AssertionError("Failed to present the swapchain image: " + translateVulkanResult(err))
-        }
-        // Create and submit post present barrier
-        vkQueueWaitIdle(queue)
-
-        // Destroy this semaphore (we will create a new one in the next frame)
-        vkDestroySemaphore(device, pImageAcquiredSemaphore.get(0), null)
-        vkDestroySemaphore(device, pRenderCompleteSemaphore.get(0), null)
-
-        MemoryStack.stackGet().reset()
+//        // Submit to the graphics queue
+//        err = vkQueueSubmit(queue, submitInfo, VK_NULL_HANDLE)
+//        if (err != VK_SUCCESS) {
+//            throw AssertionError("Failed to submit render queue: " + translateVulkanResult(err))
+//        }
+//
+//        // Present the current buffer to the swap chain
+//        // This will display the image
+//        pSwapchains.put(0, Triangle.swapchain!!.swapchainHandle)
+//        err = vkQueuePresentKHR(queue, presentInfo)
+//        if (err != VK_SUCCESS) {
+//            throw AssertionError("Failed to present the swapchain image: " + translateVulkanResult(err))
+//        }
+//        // Create and submit post present barrier
+//        vkQueueWaitIdle(queue)
+//
+//        // Destroy this semaphore (we will create a new one in the next frame)
+//        vkDestroySemaphore(device, pImageAcquiredSemaphore.get(0), null)
+//        vkDestroySemaphore(device, pRenderCompleteSemaphore.get(0), null)
+//
+//        MemoryStack.stackGet().reset()
     }
-    presentInfo.free()
-    memFree(pWaitDstStageMask)
-    submitInfo.free()
-    memFree(pImageAcquiredSemaphore)
-    memFree(pRenderCompleteSemaphore)
-    semaphoreCreateInfo.free()
-    memFree(pSwapchains)
-    memFree(pCommandBuffers)
-
-//    vkDestroyDebugReportCallbackEXT(instance, debugCallbackHandle.L, null)
-
-//    windowSizeCallback.free()
-//    Callbacks.glfwFreeCallbacks(window.handle.L)
-    window.destroy()
-    glfwTerminate()
+//    presentInfo.free()
+//    memFree(pWaitDstStageMask)
+//    submitInfo.free()
+//    memFree(pImageAcquiredSemaphore)
+//    memFree(pRenderCompleteSemaphore)
+//    semaphoreCreateInfo.free()
+//    memFree(pSwapchains)
+//    memFree(pCommandBuffers)
+//
+////    vkDestroyDebugReportCallbackEXT(instance, debugCallbackHandle.L, null)
+//
+////    windowSizeCallback.free()
+////    Callbacks.glfwFreeCallbacks(window.handle.L)
+//    window.destroy()
+//    glfwTerminate()
 
     // We don't bother disposing of all Vulkan resources.
     // Let the OS process manager take care of it.
@@ -256,12 +215,12 @@ fun createInstance(requiredExtensions: ArrayList<String>): Instance {
     return Instance(createInfo)
 }
 
-//fun setupDebugging(instance: VkInstance, flags: VkDebugReportFlagsEXT): VkDebugReportCallback {
-//    val dbgCreateInfo = DebugReportCallbackCreateInfo(flags)
-//    return instance createDebugReportCallback dbgCreateInfo
-//}
+fun setupDebugging(instance: Instance, flags: VkDebugReportFlagsEXT): VkDebugReportCallback {
+    val dbgCreateInfo = DebugReportCallbackCreateInfo(flags)
+    return instance createDebugReportCallback dbgCreateInfo
+}
 
-fun createDeviceAndGetGraphicsQueueFamily(physicalDevice: PhysicalDevice): Triple<VkDevice, Int, VkPhysicalDeviceMemoryProperties> {
+fun createDeviceAndGetGraphicsQueueFamily(physicalDevice: PhysicalDevice): Triple<Device, Int, PhysicalDeviceMemoryProperties> {
     val queueProps = physicalDevice.queueFamilyProperties
     var graphicsQueueFamilyIndex = 0
     while (graphicsQueueFamilyIndex < queueProps.size) {
@@ -284,7 +243,7 @@ fun createDeviceAndGetGraphicsQueueFamily(physicalDevice: PhysicalDevice): Tripl
     return Triple(device, graphicsQueueFamilyIndex, memoryProperties)
 }
 
-fun getFormatAndColorSpace(physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR): Pair<VkFormat, VkColorSpaceKHR> {
+fun getFormatAndColorSpace(physicalDevice: PhysicalDevice, surface: VkSurfaceKHR): Pair<VkFormat, VkColorSpaceKHR> {
     val queueProps = physicalDevice.queueFamilyProperties
 
     // Iterate over each queue to learn whether it supports presenting:
@@ -320,21 +279,21 @@ fun getFormatAndColorSpace(physicalDevice: VkPhysicalDevice, surface: VkSurfaceK
     if (graphicsQueueNodeIndex != presentQueueNodeIndex) throw AssertionError("Presentation queue != graphics queue")
 
     // Get list of supported formats
-    val surfFormats: VkSurfaceFormatKHR.Buffer = physicalDevice.getSurfaceFormatsKHR(surface)
+    val surfFormats = physicalDevice getSurfaceFormatsKHR surface
 
     val format = when {
-        surfFormats.rem == 1 && surfFormats[0].format == VkFormat.UNDEFINED -> VkFormat.B8G8R8A8_UNORM
+        surfFormats.size == 1 && surfFormats[0].format == VkFormat.UNDEFINED -> VkFormat.B8G8R8A8_UNORM
         else -> surfFormats[0].format
     }
     return format to surfFormats[0].colorSpace
 }
 
-fun createCommandPool(device: VkDevice, queueNodeIndex: Int): VkCommandPool {
+fun createCommandPool(device: Device, queueNodeIndex: Int): VkCommandPool {
     val cmdPoolInfo = CommandPoolCreateInfo(VkCommandPoolCreate.RESET_COMMAND_BUFFER_BIT.i, queueNodeIndex)
     return device createCommandPool cmdPoolInfo
 }
 
-fun createRenderPass(device: VkDevice, format: VkFormat): VkRenderPass {
+fun createRenderPass(device: Device, format: VkFormat): VkRenderPass {
 
     val attachment = AttachmentDescription(
         format = format,
@@ -362,22 +321,26 @@ fun createRenderPass(device: VkDevice, format: VkFormat): VkRenderPass {
     return device createRenderPass renderPassInfo
 }
 
-fun createVertices(device: VkDevice, deviceMemoryProperties: VkPhysicalDeviceMemoryProperties): Triangle.Vertices {
+fun createVertices(device: Device, deviceMemoryProperties: PhysicalDeviceMemoryProperties)
+        : Pair<VkBuffer, PipelineVertexInputStateCreateInfo> {
 
-    val vertexBuffer = memAlloc(3 * Vec2.size)
     // The triangle will showup upside-down, because Vulkan does not do proper viewport transformation to
     // account for inverted Y axis between the window coordinate system and clip space/NDC
-    Vec2(-0.5f, -0.5f).to(vertexBuffer, 0)
-    Vec2(+0.5f, -0.5f).to(vertexBuffer, Vec2.size)
-    Vec2(+0.0f, +0.5f).to(vertexBuffer, Vec2.size * 2)
+    val vertexBuffer = bufferOf(
+        Vec2(-0.5f, -0.5f),
+        Vec2(+0.5f, -0.5f),
+        Vec2(+0.0f, +0.5f)
+    )
 
     // Generate vertex buffer
     //  Setup
-    val bufInfo =
-        BufferCreateInfo(size = VkDeviceSize(vertexBuffer.rem), usageFlags = VkBufferUsage.VERTEX_BUFFER_BIT.i)
+    val bufInfo = BufferCreateInfo(
+        size = VkDeviceSize(vertexBuffer),
+        usageFlags = VkBufferUsage.VERTEX_BUFFER_BIT.i
+    )
     val verticesBuf = device createBuffer bufInfo
 
-    val memReqs = device.getBufferMemoryRequirements(verticesBuf)
+    val memReqs = device getBufferMemoryRequirements verticesBuf
     val (memoryTypeIndex, _) = getMemoryType(
         deviceMemoryProperties,
         memReqs.memoryTypeBits,
@@ -394,35 +357,27 @@ fun createVertices(device: VkDevice, deviceMemoryProperties: VkPhysicalDeviceMem
     device.bindBufferMemory(verticesBuf, verticesMem)
 
     // Binding description
-    val bindingDescriptor = VkVertexInputBindingDescription.calloc(1)
-        .binding(0) // <- we bind our vertex buffer to point 0
-        .stride(2 * 4)
-        .inputRate(VK_VERTEX_INPUT_RATE_VERTEX)
+    val bindingDescriptor = VertexInputBindingDescription(
+        binding = 0, // <- we bind our vertex buffer to point 0
+        stride = 2 * 4,
+        inputRate = VkVertexInputRate.VERTEX
+    )
 
     // Attribute descriptions
     // Describes memory layout and shader attribute locations
-    val attributeDescriptions = VkVertexInputAttributeDescription.calloc(1)
-    // Location 0 : Position
-    attributeDescriptions.get(0)
-        .binding(0) // <- binding point used in the VkVertexInputBindingDescription
-        .location(0) // <- location in the shader's attribute layout (inside the shader source)
-        .format(VK_FORMAT_R32G32_SFLOAT)
-        .offset(0)
+    val attributeDescriptions = VertexInputAttributeDescription(
+        // Location 0 : Position
+        binding = 0, // <- binding point used in the VkVertexInputBindingDescription
+        location = 0, // <- location in the shader's attribute layout (inside the shader source)
+        format = VkFormat.R32G32_SFLOAT
+    )
 
     // Assign to vertex buffer
-    val vi = VkPipelineVertexInputStateCreateInfo.calloc()
-        .sType(VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO)
-        .pVertexBindingDescriptions(bindingDescriptor)
-        .pVertexAttributeDescriptions(attributeDescriptions)
-
-    val ret = Triangle.Vertices()
-    ret.createInfo = vi
-    ret.verticesBuf = verticesBuf.L
-    return ret
+    return verticesBuf to PipelineVertexInputStateCreateInfo(bindingDescriptor, attributeDescriptions)
 }
 
 fun getMemoryType(
-    deviceMemoryProperties: VkPhysicalDeviceMemoryProperties,
+    deviceMemoryProperties: PhysicalDeviceMemoryProperties,
     typeBits: Int,
     properties: Int
 ): Pair<Int, Boolean> {
@@ -434,6 +389,185 @@ fun getMemoryType(
         bits = bits shr 1
     }
     return 0 to false
+}
+
+fun createPipeline(device: Device, renderPass: VkRenderPass, vi: PipelineVertexInputStateCreateInfo): VkPipeline {
+
+    // Vertex input state
+    // Describes the topoloy used with this pipeline
+    val inputAssemblyState = PipelineInputAssemblyStateCreateInfo(VkPrimitiveTopology.TRIANGLE_LIST)
+
+    // Rasterization state
+    val rasterizationState = PipelineRasterizationStateCreateInfo(
+        cullMode = VkCullMode.NONE.i,
+        frontFace = VkFrontFace.COUNTER_CLOCKWISE
+    )
+
+    // Color blend state
+    // Describes blend modes and color masks
+    val colorWriteMask = PipelineColorBlendAttachmentState(colorWriteMask = 0xF) // <- RGBA
+    val colorBlendState = PipelineColorBlendStateCreateInfo(attachment = colorWriteMask)
+
+    // Viewport state
+    val viewportState = PipelineViewportStateCreateInfo(
+        viewport = Viewport(0f, 0f, 0f, 0f, 0f, 0f),    // <- one viewport
+        scissor = Rect2D(extent = Extent2D(0, 0))
+    )                             // <- one scissor rectangle
+
+    // Enable dynamic states
+    // Describes the dynamic states to be used with this pipeline
+    // Dynamic states can be set even after the pipeline has been created
+    // So there is no need to create new pipelines just for changing
+    // a viewport's dimensions or a scissor box
+    // The dynamic state properties themselves are stored in the command buffer
+    val dynamicState = PipelineDynamicStateCreateInfo(VkDynamicState.VIEWPORT, VkDynamicState.SCISSOR)
+
+    // Depth and stencil state
+    // Describes depth and stenctil test and compare ops
+    val depthStencilState = PipelineDepthStencilStateCreateInfo(
+        // No depth test/write and no stencil used
+        depthCompareOp = VkCompareOp.ALWAYS,
+        front = StencilOpState(compareOp = VkCompareOp.ALWAYS)
+    )
+
+    // Multi sampling state
+    // No multi sampling used in this example
+    val multisampleState = PipelineMultisampleStateCreateInfo()
+
+    // Load shaders
+    val shaderStages = arrayOf(
+        loadShader(device, "triangle.vert", VkShaderStage.VERTEX_BIT),
+        loadShader(device, "triangle.frag", VkShaderStage.FRAGMENT_BIT)
+    )
+
+    // Create the pipeline layout that is used to generate the rendering pipelines that
+    // are based on this descriptor set layout
+    val pipelineLayoutCreateInfo = PipelineLayoutCreateInfo()
+
+    val layout = device createPipelineLayout pipelineLayoutCreateInfo
+
+    // Assign states
+    val pipelineCreateInfo = GraphicsPipelineCreateInfo(
+        layout = layout, // <- the layout used for this pipeline (NEEDS TO BE SET! even though it is basically empty)
+        renderPass = renderPass, // <- renderpass this pipeline is attached to
+        vertexInputState = vi,
+        inputAssemblyState = inputAssemblyState,
+        rasterizationState = rasterizationState,
+        colorBlendState = colorBlendState,
+        multisampleState = multisampleState,
+        viewportState = viewportState,
+        depthStencilState = depthStencilState,
+        stages = shaderStages,
+        dynamicState = dynamicState
+    )
+
+    // Create rendering pipeline
+    return device createGraphicsPipeline pipelineCreateInfo
+}
+
+private fun loadShader(device: Device, classPath: String, stage: VkShaderStage): PipelineShaderStageCreateInfo =
+    PipelineShaderStageCreateInfo(
+        stage = stage,
+        module = loadModule(classPath, device, stage),
+        name = "main"
+    )
+
+private fun loadModule(classPath: String, device: Device, stage: VkShaderStage): VkShaderModule {
+    val shaderCode = glslToSpirv(classPath, stage.i)
+    val moduleCreateInfo = ShaderModuleCreateInfo(code = shaderCode, codeSize = shaderCode.rem.L)
+    return device createShaderModule moduleCreateInfo
+}
+
+fun createSwapChain(
+    device: Device, physicalDevice: PhysicalDevice, surface: VkSurfaceKHR, oldSwapChain: VkSwapchainKHR,
+    commandBuffer: CommandBuffer, newSize: Vec2i, format: VkFormat, colorSpace: VkColorSpaceKHR
+) {
+    // Get physical device surface properties and formats
+    val surfCaps = physicalDevice getSurfaceCapabilitiesKHR surface
+
+    val presentModes = physicalDevice getSurfacePresentModesKHR surface
+
+    // Try to use mailbox mode. Low latency and non-tearing
+    var swapchainPresentMode = VkPresentModeKHR.FIFO
+    for (i in presentModes.indices) {
+        if (presentModes[i] == VkPresentModeKHR.MAILBOX) {
+            swapchainPresentMode = VkPresentModeKHR.MAILBOX
+            break
+        }
+        if (swapchainPresentMode != VkPresentModeKHR.MAILBOX && presentModes[i] == VkPresentModeKHR.IMMEDIATE)
+            swapchainPresentMode = VkPresentModeKHR.IMMEDIATE
+    }
+
+    // Determine the number of images
+    var desiredNumberOfSwapchainImages = surfCaps.minImageCount + 1
+    if (surfCaps.maxImageCount in 1 until desiredNumberOfSwapchainImages)
+        desiredNumberOfSwapchainImages = surfCaps.maxImageCount
+
+    val currentExtent = surfCaps.currentExtent
+    val currentSize = currentExtent.size
+    Triangle.size put when {
+        currentSize allNotEqual -1 -> currentSize
+        else -> newSize
+    }
+
+    val preTransform = when {
+        surfCaps.supportedTransforms has VkSurfaceTransformKHR.IDENTITY_BIT -> VkSurfaceTransformKHR.IDENTITY_BIT
+        else -> surfCaps.currentTransform
+    }
+
+    val swapchainCI = SwapchainCreateInfoKHR(
+        surface = surface,
+        minImageCount = desiredNumberOfSwapchainImages,
+        imageFormat = format,
+        imageColorSpace = colorSpace,
+        imageUsage = VkImageUsage.COLOR_ATTACHMENT_BIT.i,
+        preTransform = preTransform,
+        imageArrayLayers = 1,
+        imageSharingMode = VkSharingMode.EXCLUSIVE,
+        presentMode = swapchainPresentMode,
+        oldSwapchain = oldSwapChain,
+        clipped = true,
+        compositeAlpha = VkCompositeAlphaKHR.OPAQUE_BIT,
+        imageExtent = Extent2D(Triangle.size)
+    )
+    Triangle.swapchain = device createSwapchainKHR swapchainCI
+
+    // If we just re-created an existing swapchain, we should destroy the old swapchain at this point.
+    // Note: destroying the swapchain also cleans up all its associated presentable images once the platform is done with them.
+    if (oldSwapChain.isValid)
+        device destroy oldSwapChain
+
+    Triangle.images = device getSwapchainImagesKHR Triangle.swapchain
+
+    val colorAttachmentView = ImageViewCreateInfo(
+        format = format,
+        viewType = VkImageViewType._2D,
+        subresourceRange = ImageSubresourceRange(
+            aspectMask = VkImageAspect.COLOR_BIT.i,
+            levelCount = 1,
+            layerCount = 1)
+        )
+    Triangle.imageViews = device.createImageViewArray(colorAttachmentView, Triangle.images)
+}
+
+fun submitCommanBuffer(queue: Queue, commandBuffer: CommandBuffer) {
+    if (commandBuffer.isInvalid) return
+    val submitInfo = SubmitInfo(commandBuffer = commandBuffer)
+    queue.submit(submitInfo)
+}
+
+fun createFramebuffers(
+    device: Device,
+    swapchain: Triangle.Swapchain,
+    renderPass: VkRenderPass,
+    size: Vec2i
+): VkFramebuffer_Array {
+    val fci = FramebufferCreateInfo(
+        dimension = Vec3i(size, 1),
+        renderPass = renderPass
+    )
+    // Create a framebuffer for each swapchain image
+    return device.createFramebufferArray(fci, swapchain.imageViews)
 }
 
 object Triangle {
@@ -450,11 +584,12 @@ object Triangle {
     /*
      * All resources that must be reallocated on window resize.
      */
-    var swapchain: Swapchain? = null
-    var framebuffers: LongArray? = null
-    var width: Int = 0
-    var height: Int = 0
-    var renderCommandBuffers: Array<VkCommandBuffer>? = null
+    var swapchain = VkSwapchainKHR.NULL
+    var images = VkImage_Array()
+    var imageViews = VkImageView_Array()
+    var framebuffers: VkFramebuffer_Array? = null
+    var size = Vec2i()
+    var renderCommandBuffers: Array<CommandBuffer>? = null
 
     class DeviceAndGraphicsQueueFamily {
         internal var device: VkDevice? = null
@@ -464,217 +599,11 @@ object Triangle {
 
 
     class Swapchain {
-        internal var swapchainHandle: Long = 0
-        internal var images: LongArray? = null
-        internal var imageViews: LongArray? = null
+        var handle = VkSwapchainKHR.NULL
+        var images = VkImage_Array()
+        var imageViews = VkImageView_Array()
     }
 
-    fun createSwapChain(
-        device: VkDevice?,
-        physicalDevice: VkPhysicalDevice,
-        surface: Long,
-        oldSwapChain: Long,
-        commandBuffer: VkCommandBuffer,
-        newWidth: Int,
-        newHeight: Int,
-        colorFormat: Int,
-        colorSpace: Int
-    ): Swapchain {
-        var err: Int
-        // Get physical device surface properties and formats
-        val surfCaps = VkSurfaceCapabilitiesKHR.calloc()
-        err = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, surfCaps)
-        if (err != VK_SUCCESS) {
-            throw AssertionError("Failed to get physical device surface capabilities: " + translateVulkanResult(err))
-        }
-
-        val pPresentModeCount = memAllocInt(1)
-        err = vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, pPresentModeCount, null)
-        val presentModeCount = pPresentModeCount.get(0)
-        if (err != VK_SUCCESS) {
-            throw AssertionError(
-                "Failed to get number of physical device surface presentation modes: " + translateVulkanResult(
-                    err
-                )
-            )
-        }
-
-        val pPresentModes = memAllocInt(presentModeCount)
-        err = vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, pPresentModeCount, pPresentModes)
-        memFree(pPresentModeCount)
-        if (err != VK_SUCCESS) {
-            throw AssertionError(
-                "Failed to get physical device surface presentation modes: " + translateVulkanResult(
-                    err
-                )
-            )
-        }
-
-        // Try to use mailbox mode. Low latency and non-tearing
-        var swapchainPresentMode = VK_PRESENT_MODE_FIFO_KHR
-        for (i in 0 until presentModeCount) {
-            if (pPresentModes.get(i) == VK_PRESENT_MODE_MAILBOX_KHR) {
-                swapchainPresentMode = VK_PRESENT_MODE_MAILBOX_KHR
-                break
-            }
-            if (swapchainPresentMode != VK_PRESENT_MODE_MAILBOX_KHR && pPresentModes.get(i) == VK_PRESENT_MODE_IMMEDIATE_KHR) {
-                swapchainPresentMode = VK_PRESENT_MODE_IMMEDIATE_KHR
-            }
-        }
-        memFree(pPresentModes)
-
-        // Determine the number of images
-        var desiredNumberOfSwapchainImages = surfCaps.minImageCount() + 1
-        if (surfCaps.maxImageCount() > 0 && desiredNumberOfSwapchainImages > surfCaps.maxImageCount()) {
-            desiredNumberOfSwapchainImages = surfCaps.maxImageCount()
-        }
-
-        val currentExtent = surfCaps.currentExtent()
-        val currentWidth = currentExtent.width()
-        val currentHeight = currentExtent.height()
-        if (currentWidth != -1 && currentHeight != -1) {
-            width = currentWidth
-            height = currentHeight
-        } else {
-            width = newWidth
-            height = newHeight
-        }
-
-        val preTransform: Int
-        if (surfCaps.supportedTransforms() and VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR != 0) {
-            preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR
-        } else {
-            preTransform = surfCaps.currentTransform()
-        }
-        surfCaps.free()
-
-        val swapchainCI = VkSwapchainCreateInfoKHR.calloc()
-            .sType(VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR)
-            .surface(surface)
-            .minImageCount(desiredNumberOfSwapchainImages)
-            .imageFormat(colorFormat)
-            .imageColorSpace(colorSpace)
-            .imageUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
-            .preTransform(preTransform)
-            .imageArrayLayers(1)
-            .imageSharingMode(VK_SHARING_MODE_EXCLUSIVE)
-            .presentMode(swapchainPresentMode)
-            .oldSwapchain(oldSwapChain)
-            .clipped(true)
-            .compositeAlpha(VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR)
-        swapchainCI.imageExtent()
-            .width(width)
-            .height(height)
-        val pSwapChain = memAllocLong(1)
-        err = vkCreateSwapchainKHR(device!!, swapchainCI, null, pSwapChain)
-        swapchainCI.free()
-        val swapChain = pSwapChain.get(0)
-        memFree(pSwapChain)
-        if (err != VK_SUCCESS) {
-            throw AssertionError("Failed to create swap chain: " + translateVulkanResult(err))
-        }
-
-        // If we just re-created an existing swapchain, we should destroy the old swapchain at this point.
-        // Note: destroying the swapchain also cleans up all its associated presentable images once the platform is done with them.
-        if (oldSwapChain != VK_NULL_HANDLE) {
-            vkDestroySwapchainKHR(device!!, oldSwapChain, null)
-        }
-
-        val pImageCount = memAllocInt(1)
-        err = vkGetSwapchainImagesKHR(device!!, swapChain, pImageCount, null)
-        val imageCount = pImageCount.get(0)
-        if (err != VK_SUCCESS) {
-            throw AssertionError("Failed to get number of swapchain images: " + translateVulkanResult(err))
-        }
-
-        val pSwapchainImages = memAllocLong(imageCount)
-        err = vkGetSwapchainImagesKHR(device!!, swapChain, pImageCount, pSwapchainImages)
-        if (err != VK_SUCCESS) {
-            throw AssertionError("Failed to get swapchain images: " + translateVulkanResult(err))
-        }
-        memFree(pImageCount)
-
-        val images = LongArray(imageCount)
-        val imageViews = LongArray(imageCount)
-        val pBufferView = memAllocLong(1)
-        val colorAttachmentView = VkImageViewCreateInfo.calloc()
-            .sType(VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO)
-            .format(colorFormat)
-            .viewType(VK_IMAGE_VIEW_TYPE_2D)
-        colorAttachmentView.subresourceRange()
-            .aspectMask(VK_IMAGE_ASPECT_COLOR_BIT)
-            .levelCount(1)
-            .layerCount(1)
-        for (i in 0 until imageCount) {
-            images[i] = pSwapchainImages.get(i)
-            colorAttachmentView.image(images[i])
-            err = vkCreateImageView(device!!, colorAttachmentView, null, pBufferView)
-            imageViews[i] = pBufferView.get(0)
-            if (err != VK_SUCCESS) {
-                throw AssertionError("Failed to create image view: " + translateVulkanResult(err))
-            }
-        }
-        colorAttachmentView.free()
-        memFree(pBufferView)
-        memFree(pSwapchainImages)
-
-        val ret = Swapchain()
-        ret.images = images
-        ret.imageViews = imageViews
-        ret.swapchainHandle = swapChain
-        return ret
-    }
-
-
-    fun createFramebuffers(
-        device: VkDevice?,
-        swapchain: Swapchain,
-        renderPass: Long,
-        width: Int,
-        height: Int
-    ): LongArray {
-        val attachments = memAllocLong(1)
-        val fci = VkFramebufferCreateInfo.calloc()
-            .sType(VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO)
-            .pAttachments(attachments)
-            .height(height)
-            .width(width)
-            .layers(1)
-            .renderPass(renderPass)
-        // Create a framebuffer for each swapchain image
-        val framebuffers = LongArray(swapchain.images!!.size)
-        val pFramebuffer = memAllocLong(1)
-        for (i in swapchain.images!!.indices) {
-            attachments.put(0, swapchain.imageViews!![i])
-            val err = vkCreateFramebuffer(device!!, fci, null, pFramebuffer)
-            val framebuffer = pFramebuffer.get(0)
-            if (err != VK_SUCCESS) {
-                throw AssertionError("Failed to create framebuffer: " + translateVulkanResult(err))
-            }
-            framebuffers[i] = framebuffer
-        }
-        memFree(attachments)
-        memFree(pFramebuffer)
-        fci.free()
-        return framebuffers
-    }
-
-    fun submitCommandBuffer(queue: VkQueue, commandBuffer: VkCommandBuffer?) {
-        if (commandBuffer == null || commandBuffer!!.address() == NULL)
-            return
-        val submitInfo = VkSubmitInfo.calloc()
-            .sType(VK_STRUCTURE_TYPE_SUBMIT_INFO)
-        val pCommandBuffers = memAllocPointer(1)
-            .put(commandBuffer!!)
-            .flip()
-        submitInfo.pCommandBuffers(pCommandBuffers)
-        val err = vkQueueSubmit(queue, submitInfo, VK_NULL_HANDLE)
-        memFree(pCommandBuffers)
-        submitInfo.free()
-        if (err != VK_SUCCESS) {
-            throw AssertionError("Failed to submit command buffer: " + translateVulkanResult(err))
-        }
-    }
 
     @Throws(IOException::class)
     fun loadShader(classPath: String, device: VkDevice?, stage: Int): Long {
@@ -708,121 +637,6 @@ object Triangle {
         internal var createInfo: VkPipelineVertexInputStateCreateInfo? = null
     }
 
-
-    @Throws(IOException::class)
-    fun createPipeline(device: VkDevice?, renderPass: Long, vi: VkPipelineVertexInputStateCreateInfo?): Long {
-        var err: Int
-        // Vertex input state
-        // Describes the topoloy used with this pipeline
-        val inputAssemblyState = VkPipelineInputAssemblyStateCreateInfo.calloc()
-            .sType(VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO)
-            .topology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-
-        // Rasterization state
-        val rasterizationState = VkPipelineRasterizationStateCreateInfo.calloc()
-            .sType(VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO)
-            .polygonMode(VK_POLYGON_MODE_FILL)
-            .cullMode(VK_CULL_MODE_NONE)
-            .frontFace(VK_FRONT_FACE_COUNTER_CLOCKWISE)
-            .lineWidth(1.0f)
-
-        // Color blend state
-        // Describes blend modes and color masks
-        val colorWriteMask = VkPipelineColorBlendAttachmentState.calloc(1)
-            .colorWriteMask(0xF) // <- RGBA
-        val colorBlendState = VkPipelineColorBlendStateCreateInfo.calloc()
-            .sType(VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO)
-            .pAttachments(colorWriteMask)
-
-        // Viewport state
-        val viewportState = VkPipelineViewportStateCreateInfo.calloc()
-            .sType(VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO)
-            .viewportCount(1) // <- one viewport
-            .scissorCount(1) // <- one scissor rectangle
-
-        // Enable dynamic states
-        // Describes the dynamic states to be used with this pipeline
-        // Dynamic states can be set even after the pipeline has been created
-        // So there is no need to create new pipelines just for changing
-        // a viewport's dimensions or a scissor box
-        val pDynamicStates = memAllocInt(2)
-        pDynamicStates.put(VK_DYNAMIC_STATE_VIEWPORT).put(VK_DYNAMIC_STATE_SCISSOR).flip()
-        val dynamicState = VkPipelineDynamicStateCreateInfo.calloc()
-            // The dynamic state properties themselves are stored in the command buffer
-            .sType(VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO)
-            .pDynamicStates(pDynamicStates)
-
-        // Depth and stencil state
-        // Describes depth and stenctil test and compare ops
-        val depthStencilState = VkPipelineDepthStencilStateCreateInfo.calloc()
-            // No depth test/write and no stencil used
-            .sType(VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO)
-            .depthCompareOp(VK_COMPARE_OP_ALWAYS)
-        depthStencilState.back()
-            .failOp(VK_STENCIL_OP_KEEP)
-            .passOp(VK_STENCIL_OP_KEEP)
-            .compareOp(VK_COMPARE_OP_ALWAYS)
-        depthStencilState.front(depthStencilState.back())
-
-        // Multi sampling state
-        // No multi sampling used in this example
-        val multisampleState = VkPipelineMultisampleStateCreateInfo.calloc()
-            .sType(VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO)
-            .rasterizationSamples(VK_SAMPLE_COUNT_1_BIT)
-
-        // Load shaders
-        val shaderStages = VkPipelineShaderStageCreateInfo.calloc(2)
-        shaderStages.get(0).set(loadShader(device, "triangle.vert", VK_SHADER_STAGE_VERTEX_BIT))
-        shaderStages.get(1).set(loadShader(device, "triangle.frag", VK_SHADER_STAGE_FRAGMENT_BIT))
-
-        // Create the pipeline layout that is used to generate the rendering pipelines that
-        // are based on this descriptor set layout
-        val pPipelineLayoutCreateInfo = VkPipelineLayoutCreateInfo.calloc()
-            .sType(VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO)
-
-        val pPipelineLayout = memAllocLong(1)
-        err = vkCreatePipelineLayout(device!!, pPipelineLayoutCreateInfo, null, pPipelineLayout)
-        val layout = pPipelineLayout.get(0)
-        memFree(pPipelineLayout)
-        pPipelineLayoutCreateInfo.free()
-        if (err != VK_SUCCESS) {
-            throw AssertionError("Failed to create pipeline layout: " + translateVulkanResult(err))
-        }
-
-        // Assign states
-        val pipelineCreateInfo = VkGraphicsPipelineCreateInfo.calloc(1)
-            .sType(VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO)
-            .layout(layout) // <- the layout used for this pipeline (NEEDS TO BE SET! even though it is basically empty)
-            .renderPass(renderPass) // <- renderpass this pipeline is attached to
-            .pVertexInputState(vi)
-            .pInputAssemblyState(inputAssemblyState)
-            .pRasterizationState(rasterizationState)
-            .pColorBlendState(colorBlendState)
-            .pMultisampleState(multisampleState)
-            .pViewportState(viewportState)
-            .pDepthStencilState(depthStencilState)
-            .pStages(shaderStages)
-            .pDynamicState(dynamicState)
-
-        // Create rendering pipeline
-        val pPipelines = memAllocLong(1)
-        err = vkCreateGraphicsPipelines(device!!, VK_NULL_HANDLE, pipelineCreateInfo, null, pPipelines)
-        val pipeline = pPipelines.get(0)
-        shaderStages.free()
-        multisampleState.free()
-        depthStencilState.free()
-        dynamicState.free()
-        memFree(pDynamicStates)
-        viewportState.free()
-        colorBlendState.free()
-        colorWriteMask.free()
-        rasterizationState.free()
-        inputAssemblyState.free()
-        if (err != VK_SUCCESS) {
-            throw AssertionError("Failed to create pipeline: " + translateVulkanResult(err))
-        }
-        return pipeline
-    }
 
     fun createRenderCommandBuffers(
         device: VkDevice?, commandPool: Long, framebuffers: LongArray, renderPass: Long, width: Int, height: Int,

@@ -29,7 +29,7 @@ import static org.lwjgl.vulkan.VK10.*;
  */
 public class TriangleDemo {
 
-    private static final boolean validation = Boolean.parseBoolean(System.getProperty("vulkan.validation", "false"));
+    private static final boolean validation = true;
 
     private static ByteBuffer[] layers = {
             memUTF8("VK_LAYER_LUNARG_standard_validation"),
@@ -915,7 +915,6 @@ public class TriangleDemo {
                 return 0;
             }
         };
-        debugCallback.free();
         final long debugCallbackHandle = setupDebugging(instance, VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT, debugCallback);
         final VkPhysicalDevice physicalDevice = getFirstPhysicalDevice(instance);
         final DeviceAndGraphicsQueueFamily deviceAndGraphicsQueueFamily = createDeviceAndGetGraphicsQueueFamily(physicalDevice);

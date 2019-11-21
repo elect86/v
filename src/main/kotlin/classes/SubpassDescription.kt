@@ -3,18 +3,13 @@ package classes
 import kool.Ptr
 import kool.adr
 import kool.toIntBuffer
-import org.lwjgl.BufferUtils
-import org.lwjgl.system.*
+import org.lwjgl.system.MemoryStack
 import org.lwjgl.system.MemoryUtil.NULL
 import org.lwjgl.system.MemoryUtil.memPutAddress
 import org.lwjgl.vulkan.*
-import org.lwjgl.vulkan.VkSubpassDescription
 import org.lwjgl.vulkan.VkSubpassDescription.*
-import util.native
 import vkk.VkPipelineBindPoint
 import vkk.VkSubpassDescriptionFlags
-import java.nio.ByteBuffer
-import java.nio.IntBuffer
 
 /**
  * Structure specifying a subpass description.
@@ -137,36 +132,50 @@ class SubpassDescription(
         colorAttachment?.let { colorAttachments = arrayOf(it) }
     }
 
-    var inputAttachment: AttachmentReference
-        get() = inputAttachments!![0]
-        set(value) {
-            inputAttachments = arrayOf(value)
-        }
-
-    var colorAttachment: AttachmentReference
-        get() = colorAttachments!![0]
-        set(value) {
-            colorAttachments = arrayOf(value)
-        }
-
-    var resolveAttachment: AttachmentReference
-        get() = resolveAttachments!![0]
-        set(value) {
-            resolveAttachments = arrayOf(value)
-        }
+//    var inputAttachment: AttachmentReference
+//        get() = inputAttachments!![0]
+//        set(value) {
+//            inputAttachments = arrayOf(value)
+//        }
+//
+//    var colorAttachment: AttachmentReference
+//        get() = colorAttachments!![0]
+//        set(value) {
+//            colorAttachments = arrayOf(value)
+//        }
+//
+//    var resolveAttachment: AttachmentReference
+//        get() = resolveAttachments!![0]
+//        set(value) {
+//            resolveAttachments = arrayOf(value)
+//        }
 
     val MemoryStack.native: Ptr
-        get() = ncalloc(ALIGNOF, 1, SIZEOF).also { toPtr(it) }
+        get() = ncalloc(ALIGNOF, 1, SIZEOF).also { toPtr(it, this) }
 
-    infix fun MemoryStack.toPtr(ptr: Ptr) {
+    fun toPtr(ptr: Ptr, stack: MemoryStack) {
         nflags(ptr, flags)
         npipelineBindPoint(ptr, pipelineBindPoint.i)
-        ninputAttachmentCount(ptr, inputAttachments?.size ?: 0)
-        memPutAddress(ptr + PINPUTATTACHMENTS, inputAttachments?.native(this) ?: NULL)
-        ncolorAttachmentCount(ptr, colorAttachments?.size ?: 0)
-        memPutAddress(ptr + PCOLORATTACHMENTS, colorAttachments?.native(this) ?: NULL)
-        memPutAddress(ptr + PRESOLVEATTACHMENTS, resolveAttachments?.native(this) ?: NULL)
-        memPutAddress(ptr + PDEPTHSTENCILATTACHMENT, depthStencilAttachment?.run { native } ?: NULL)
-        memPutAddress(ptr + PPRESERVEATTACHMENTS, preserveAttachments?.toIntBuffer(this)?.adr ?: NULL)
+        inputAttachments?.let {
+            ninputAttachmentCount(ptr, it.size)
+            memPutAddress(ptr + PINPUTATTACHMENTS, it.native(stack))
+        }
+        colorAttachments?.let {
+            ncolorAttachmentCount(ptr, it.size)
+            memPutAddress(ptr + PCOLORATTACHMENTS, it.native(stack))
+        }
+        resolveAttachments?.let { memPutAddress(ptr + PRESOLVEATTACHMENTS, it.native(stack)) }
+        depthStencilAttachment?.let { memPutAddress(ptr + PDEPTHSTENCILATTACHMENT, it.run { stack.native }) }
+        preserveAttachments?.let {
+            memPutAddress(ptr + PPRESERVEATTACHMENTS, it.toIntBuffer(stack).adr)
+            npreserveAttachmentCount(ptr, it.size)
+        }
     }
+}
+
+fun Array<SubpassDescription>.native(stack: MemoryStack): Ptr {
+    val natives = stack.ncalloc(ALIGNOF, size, SIZEOF)
+    for (i in indices)
+        this[i].toPtr(natives + i * SIZEOF, stack)
+    return natives
 }

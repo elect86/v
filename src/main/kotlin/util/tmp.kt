@@ -1,23 +1,26 @@
 package util
 
-import classes.*
 import glm_.BYTES
 import glm_.L
 import glm_.b
 import glm_.i
+import glm_.vec2.Vec2
 import identifiers.Instance
 import identifiers.PhysicalDevice
 import kool.*
+import kool.lib.indices
 import org.lwjgl.PointerBuffer
 import org.lwjgl.glfw.GLFWVulkan
 import org.lwjgl.system.MemoryStack
 import org.lwjgl.system.MemoryUtil.*
 import org.lwjgl.system.Pointer
-import org.lwjgl.vulkan.*
 import uno.glfw.GlfwWindow
-import vkk.VK_CHECK_RESULT
+import vkk.*
+import vkk.entities.VkDeviceSize
+import vkk.entities.VkImageView_Array
+import vkk.entities.VkSemaphore_Array
 import vkk.entities.VkSurfaceKHR
-import vkk.stak
+import java.nio.ByteBuffer
 import java.nio.LongBuffer
 
 @JvmName("PointerBufferSafe")
@@ -66,7 +69,18 @@ fun MemoryStack.nUtf8(text: CharSequence, nullTerminated: Boolean = true): Ptr {
     }
 }
 
-internal fun encodeUTF8(text: CharSequence, nullTerminated: Boolean, target: Long): Int {
+@JvmName("nAsciiSafe")
+fun MemoryStack.nAscii(text: CharSequence?, nullTerminated: Boolean = true): Ptr =
+    text?.let { nUtf8(it, nullTerminated) } ?: NULL
+
+fun MemoryStack.nAscii(text: CharSequence, nullTerminated: Boolean = true): Ptr {
+    val length = memLengthASCII(text, nullTerminated)
+    return nmalloc(1, length).also {
+        encodeASCII(text, nullTerminated, it)
+    }
+}
+
+internal fun encodeUTF8(text: CharSequence, nullTerminated: Boolean, target: Ptr): Int {
     var i = 0
     val len = text.length
     var p = 0
@@ -109,6 +123,15 @@ internal fun encodeUTF8(text: CharSequence, nullTerminated: Boolean, target: Lon
         UNSAFE.putByte(target + p++, 0.b) // TODO: did we have a bug here?
 
     return p
+}
+
+internal fun encodeASCII(text: CharSequence, nullTerminated: Boolean, target: Ptr): Int {
+    var len = text.length
+    for (p in 0 until len)
+        UNSAFE.putByte(target + p, text[p].b)
+    if (nullTerminated)
+        UNSAFE.putByte(target + len++, 0.b)
+    return len
 }
 
 val UNSAFE: sun.misc.Unsafe = run {
@@ -157,40 +180,6 @@ fun <R> MemoryStack.longBuffer(block: (LongBuffer) -> R): Long {
 
 fun <R> MemoryStack.pointerAddress(block: (Ptr) -> R): Long = longAddress(block)
 
-fun Array<DeviceQueueCreateInfo>.native(stack: MemoryStack): VkDeviceQueueCreateInfo.Buffer {
-    val natives = VkDeviceQueueCreateInfo.callocStack(size, stack)
-    for (i in indices)
-        this[i].run { stack.toPtr(natives[i].adr) }
-    return natives
-}
-
-fun Array<AttachmentReference>.native(stack: MemoryStack): Ptr {
-    val natives = stack.ncalloc(VkAttachmentReference.ALIGNOF, size, VkAttachmentReference.SIZEOF)
-    for (i in indices)
-        this[i] toPtr (natives + i * VkAttachmentReference.SIZEOF)
-    return natives
-}
-
-fun Array<AttachmentDescription>.native(stack: MemoryStack): Ptr {
-    val natives = stack.ncalloc(VkAttachmentDescription.ALIGNOF, size, VkAttachmentDescription.SIZEOF)
-    for (i in indices)
-        this[i] toPtr (natives + i * VkAttachmentDescription.SIZEOF)
-    return natives
-}
-
-fun Array<SubpassDescription>.native(stack: MemoryStack): Ptr {
-    val natives = stack.ncalloc(VkSubpassDescription.ALIGNOF, size, VkSubpassDescription.SIZEOF)
-    for (i in indices)
-        this[i].run { stack.toPtr(natives + i * VkSubpassDescription.SIZEOF) }
-    return natives
-}
-
-fun Array<SubpassDependency>.native(stack: MemoryStack): Ptr {
-    val natives = stack.ncalloc(VkSubpassDependency.ALIGNOF, size, VkSubpassDependency.SIZEOF)
-    for (i in indices)
-        this[i] toPtr (natives + i * VkSubpassDependency.SIZEOF)
-    return natives
-}
 
 infix fun GlfwWindow.createSurface(instance: Instance): VkSurfaceKHR = stak {
     VkSurfaceKHR(stak.longAddress {
@@ -198,12 +187,88 @@ infix fun GlfwWindow.createSurface(instance: Instance): VkSurfaceKHR = stak {
     })
 }
 
-class VkPhysicalDevice_Buffer(val buffer: PointerBuffer, val instance: Instance) {
-    val rem get() = buffer.rem
-    val adr: Adr get() = buffer.adr // TODO -> Adr
+class PhysicalDevice_Buffer(val buffer: PointerBuffer, val instance: Instance) {
+    val rem: Int
+        get() = buffer.rem
+    val adr: Adr
+        get() = buffer.adr
 
     operator fun get(index: Int) = PhysicalDevice(buffer[index], instance)
-    operator fun set(index: Int, vkPhysicalDevice: PhysicalDevice) {
-        buffer.put(index, vkPhysicalDevice.adr)
+    operator fun set(index: Int, physicalDevice: PhysicalDevice) {
+        buffer.put(index, physicalDevice.adr)
     }
 }
+
+// TODO others
+inline fun MemoryStack.nmallocInt(num: Int = 1) = nmalloc(Int.BYTES, num * Int.BYTES)
+inline fun MemoryStack.nmallocLong(num: Int = 1) = nmalloc(Long.BYTES, num * Long.BYTES)
+
+inline fun MemoryStack.nmallocPointer() = nmalloc(Pointer.POINTER_SIZE, Pointer.POINTER_SIZE)
+inline fun MemoryStack.allocInt(num: Int = 1): Ptr {
+    val bytes = num * Int.BYTES
+    return nmalloc(Int.BYTES, bytes).also {
+        memSet(address, 0, bytes.L)
+    }
+}
+
+fun bufferOf(vararg vecs: Vec2): ByteBuffer {
+    val buffer = Buffer(vecs.size * Vec2.size)
+    for (i in vecs.indices)
+        vecs[i].to(buffer, i * Vec2.size)
+    return buffer
+}
+
+fun VkDeviceSize(buffer: ByteBuffer): VkDeviceSize = VkDeviceSize(buffer.rem)
+
+inline class VkResult_Array(val array: IntArray) {
+
+    operator fun get(index: Int) = VkResult(array[index])
+    operator fun set(index: Int, result: VkResult) = array.set(index, result.i)
+
+    val size get() = array.size
+    val indices get() = array.indices
+
+    inline fun forEach(action: (VkResult) -> Unit) {
+        for (element in array) action(VkResult(element))
+    }
+}
+
+fun VkResult_Array(size: Int, block: (Int) -> VkResult) = VkResult_Array(IntArray(size) { block(it).i })
+fun VkResult_Array(size: Int) = VkResult_Array(IntArray(size))
+fun VkResult_Array(elements: Collection<VkResult>) = VkResult_Array(IntArray(elements.size) { elements.elementAt(it).i })
+fun VkResult_Array() = VkResult_Array(IntArray(0))
+
+inline class VkPresentModeKHR_Array(val array: IntArray) {
+
+    operator fun get(index: Int) = VkPresentModeKHR(array[index])
+    operator fun set(index: Int, result: VkPresentModeKHR) = array.set(index, result.i)
+
+    val size get() = array.size
+    val indices get() = array.indices
+
+    inline fun forEach(action: (VkPresentModeKHR) -> Unit) {
+        for (element in array) action(VkPresentModeKHR(element))
+    }
+}
+
+fun VkPresentModeKHR_Array(size: Int, block: (Int) -> VkPresentModeKHR) = VkPresentModeKHR_Array(IntArray(size) { block(it).i })
+fun VkPresentModeKHR_Array(size: Int) = VkPresentModeKHR_Array(IntArray(size))
+fun VkPresentModeKHR_Array(elements: Collection<VkPresentModeKHR>) = VkPresentModeKHR_Array(IntArray(elements.size) { elements.elementAt(it).i })
+fun VkPresentModeKHR_Array() = VkPresentModeKHR_Array(IntArray(0))
+
+fun VkSemaphore_Array.native(stack: MemoryStack): Ptr {
+    val p = stack.nmallocInt(size)
+    for(i in indices)
+        memPutLong(p + Long.BYTES * i, this[i].L)
+    return p
+}
+
+fun VkImageView_Array.native(stack: MemoryStack): Ptr {
+    val p = stack.nmallocInt(size)
+    for(i in indices)
+        memPutLong(p + Long.BYTES * i, this[i].L)
+    return p
+}
+
+val VkPresentModeKHR_Buffer.indices: IntRange
+    get() = buffer.indices

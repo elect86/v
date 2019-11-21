@@ -2,8 +2,6 @@ package classes
 
 import kool.Ptr
 import org.lwjgl.system.MemoryStack
-import org.lwjgl.vulkan.VkMemoryAllocateInfo
-import org.lwjgl.vulkan.VkMemoryRequirements
 import org.lwjgl.vulkan.VkMemoryRequirements.*
 import vkk.entities.VkDeviceSize
 
@@ -33,12 +31,17 @@ class MemoryRequirements(
     var memoryTypeBits: Int = 0
 ) {
 
-    fun <R> MemoryStack.native(block: (Ptr) -> R): MemoryRequirements {
-        val native = ncalloc(ALIGNOF, 1, SIZEOF)
-        block(native)
-        this@MemoryRequirements.size = VkDeviceSize(nsize(native))
-        alignment = VkDeviceSize(nalignment(native))
-        memoryTypeBits = nmemoryTypeBits(native)
-        return this@MemoryRequirements
+    companion object {
+        fun ncalloc(stack: MemoryStack, num: Int = 1): Ptr = stack.ncalloc(ALIGNOF, num, SIZEOF)
+
+        fun <R> fromNative(stack: MemoryStack, block: (Ptr) -> R): MemoryRequirements {
+            val native = ncalloc(stack)
+            block(native)
+            return MemoryRequirements(
+                VkDeviceSize(nsize(native)),
+                VkDeviceSize(nalignment(native)),
+                memoryTypeBits = nmemoryTypeBits(native)
+            )
+        }
     }
 }

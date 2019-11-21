@@ -1,6 +1,7 @@
 package classes
 
 import kool.Ptr
+import kool.adr
 import kool.toFloatBuffer
 import org.lwjgl.system.MemoryStack
 import org.lwjgl.system.MemoryUtil.NULL
@@ -88,12 +89,19 @@ class DeviceQueueCreateInfo(
     }
 
     val MemoryStack.native: Ptr
-        get() = ncalloc(ALIGNOF, 1, SIZEOF).also { toPtr(it) }
+        get() = ncalloc(ALIGNOF, 1, SIZEOF).also { toPtr(it, this) }
 
-    infix fun MemoryStack.toPtr(ptr: Ptr) {
+    fun toPtr(ptr: Ptr, stack: MemoryStack) {
         nsType(ptr, type.i)
         nflags(ptr, flags)
         nqueueFamilyIndex(ptr, queueFamilyIndex)
-        npQueuePriorities(ptr, queuePriorities.toFloatBuffer(this))
+        npQueuePriorities(ptr, queuePriorities.toFloatBuffer(stack))
     }
+}
+
+fun Array<DeviceQueueCreateInfo>.native(stack: MemoryStack): Ptr {
+    val natives = stack.ncalloc(ALIGNOF, size, SIZEOF)
+    for (i in indices)
+        this[i].toPtr(natives + SIZEOF * i, stack)
+    return natives
 }

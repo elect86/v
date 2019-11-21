@@ -3,6 +3,7 @@ package classes
 import kool.Ptr
 import org.lwjgl.system.*
 import org.lwjgl.vulkan.VK10
+import org.lwjgl.vulkan.VkAttachmentDescription
 import org.lwjgl.vulkan.VkAttachmentDescription.*
 import org.lwjgl.vulkan.VkAttachmentReference
 import org.lwjgl.vulkan.VkRenderPassCreateInfo
@@ -114,4 +115,11 @@ class AttachmentDescription(
         ninitialLayout(ptr, initialLayout.i)
         nfinalLayout(ptr, finalLayout.i)
     }
+}
+
+fun Array<AttachmentDescription>.native(stack: MemoryStack): Ptr {
+    val natives = stack.ncalloc(ALIGNOF, size, SIZEOF)
+    for (i in indices)
+        this[i] toPtr (natives + i * SIZEOF)
+    return natives
 }
