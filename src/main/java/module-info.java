@@ -15,5 +15,6 @@ module untitled.main {
     requires com.github.kotlin_graphics.kool;
     requires com.github.kotlin_graphics.glm;
     requires com.github.kotlin_graphics.uno_vk;
+    requires com.github.kotlin_graphics.kotlin_unsigned;
 //    requires com.github.kotlin_graphics.imgui_core;
 }

@@ -16,10 +16,7 @@ import org.lwjgl.system.MemoryUtil.*
 import org.lwjgl.system.Pointer
 import uno.glfw.GlfwWindow
 import vkk.*
-import vkk.entities.VkDeviceSize
-import vkk.entities.VkImageView_Array
-import vkk.entities.VkSemaphore_Array
-import vkk.entities.VkSurfaceKHR
+import vkk.entities.*
 import java.nio.ByteBuffer
 import java.nio.LongBuffer
 
@@ -203,7 +200,7 @@ class PhysicalDevice_Buffer(val buffer: PointerBuffer, val instance: Instance) {
 inline fun MemoryStack.nmallocInt(num: Int = 1) = nmalloc(Int.BYTES, num * Int.BYTES)
 inline fun MemoryStack.nmallocLong(num: Int = 1) = nmalloc(Long.BYTES, num * Long.BYTES)
 
-inline fun MemoryStack.nmallocPointer() = nmalloc(Pointer.POINTER_SIZE, Pointer.POINTER_SIZE)
+inline fun MemoryStack.nmallocPointer(num: Int = 1) = nmalloc(Pointer.POINTER_SIZE, num * Pointer.POINTER_SIZE)
 inline fun MemoryStack.allocInt(num: Int = 1): Ptr {
     val bytes = num * Int.BYTES
     return nmalloc(Int.BYTES, bytes).also {
@@ -257,14 +254,21 @@ fun VkPresentModeKHR_Array(elements: Collection<VkPresentModeKHR>) = VkPresentMo
 fun VkPresentModeKHR_Array() = VkPresentModeKHR_Array(IntArray(0))
 
 fun VkSemaphore_Array.native(stack: MemoryStack): Ptr {
-    val p = stack.nmallocInt(size)
+    val p = stack.nmallocLong(size)
     for(i in indices)
         memPutLong(p + Long.BYTES * i, this[i].L)
     return p
 }
 
 fun VkImageView_Array.native(stack: MemoryStack): Ptr {
-    val p = stack.nmallocInt(size)
+    val p = stack.nmallocLong(size)
+    for(i in indices)
+        memPutLong(p + Long.BYTES * i, this[i].L)
+    return p
+}
+
+fun VkSwapchainKHR_Array.native(stack: MemoryStack): Ptr {
+    val p = stack.nmallocLong(size)
     for(i in indices)
         memPutLong(p + Long.BYTES * i, this[i].L)
     return p

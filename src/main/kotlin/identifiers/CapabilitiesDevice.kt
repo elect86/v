@@ -17,9 +17,9 @@ class CapabilitiesDevice internal constructor(
 //    val vkGetDeviceProcAddr: Long
 //    val vkDestroyDevice: Long
     val vkGetDeviceQueue: Long
-        val vkQueueSubmit: Long
+    val vkQueueSubmit: Long
     val vkQueueWaitIdle: Long
-//    val vkDeviceWaitIdle: Long
+    //    val vkDeviceWaitIdle: Long
     val vkAllocateMemory: Long
     //    val vkFreeMemory: Long
     val vkMapMemory: Long
@@ -39,8 +39,8 @@ class CapabilitiesDevice internal constructor(
 //    val vkGetFenceStatus: Long
 //    val vkWaitForFences: Long
     val vkCreateSemaphore: Long
-    //    val vkDestroySemaphore: Long
-//    val vkCreateEvent: Long
+    val vkDestroySemaphore: Long
+    //    val vkCreateEvent: Long
 //    val vkDestroyEvent: Long
 //    val vkGetEventStatus: Long
 //    val vkSetEvent: Long
@@ -56,7 +56,7 @@ class CapabilitiesDevice internal constructor(
 //    val vkDestroyImage: Long
 //    val vkGetImageSubresourceLayout: Long
     val vkCreateImageView: Long
-//    val vkDestroyImageView: Long
+    //    val vkDestroyImageView: Long
     val vkCreateShaderModule: Long
     //    val vkDestroyShaderModule: Long
 //    val vkCreatePipelineCache: Long
@@ -85,16 +85,16 @@ class CapabilitiesDevice internal constructor(
 //    val vkGetRenderAreaGranularity: Long
     val vkCreateCommandPool: Long
     //    val vkDestroyCommandPool: Long
-//    val vkResetCommandPool: Long
+    val vkResetCommandPool: Long
     val vkAllocateCommandBuffers: Long
     //    val vkFreeCommandBuffers: Long
     val vkBeginCommandBuffer: Long
     val vkEndCommandBuffer: Long
     //    val vkResetCommandBuffer: Long
-//    val vkCmdBindPipeline: Long
-//    val vkCmdSetViewport: Long
-//    val vkCmdSetScissor: Long
-//    val vkCmdSetLineWidth: Long
+    val vkCmdBindPipeline: Long
+    val vkCmdSetViewport: Long
+    val vkCmdSetScissor: Long
+    //    val vkCmdSetLineWidth: Long
 //    val vkCmdSetDepthBias: Long
 //    val vkCmdSetBlendConstants: Long
 //    val vkCmdSetDepthBounds: Long
@@ -103,9 +103,9 @@ class CapabilitiesDevice internal constructor(
 //    val vkCmdSetStencilReference: Long
 //    val vkCmdBindDescriptorSets: Long
 //    val vkCmdBindIndexBuffer: Long
-//    val vkCmdBindVertexBuffers: Long
-//    val vkCmdDraw: Long
-//    val vkCmdDrawIndexed: Long
+    val vkCmdBindVertexBuffers: Long
+    val vkCmdDraw: Long
+    //    val vkCmdDrawIndexed: Long
 //    val vkCmdDrawIndirect: Long
 //    val vkCmdDrawIndexedIndirect: Long
 //    val vkCmdDispatch: Long
@@ -131,10 +131,10 @@ class CapabilitiesDevice internal constructor(
 //    val vkCmdWriteTimestamp: Long
 //    val vkCmdCopyQueryPoolResults: Long
 //    val vkCmdPushConstants: Long
-//    val vkCmdBeginRenderPass: Long
-//    val vkCmdNextSubpass: Long
-//    val vkCmdEndRenderPass: Long
-//    val vkCmdExecuteCommands: Long
+    val vkCmdBeginRenderPass: Long
+    //    val vkCmdNextSubpass: Long
+    val vkCmdEndRenderPass: Long
+    //    val vkCmdExecuteCommands: Long
 //    // VK11
 //    val vkBindBufferMemory2: Long
 //    val vkBindImageMemory2: Long
@@ -298,7 +298,7 @@ class CapabilitiesDevice internal constructor(
     val vkDestroySwapchainKHR: Long
     val vkGetSwapchainImagesKHR: Long
     val vkAcquireNextImageKHR: Long
-//    val vkQueuePresentKHR: Long
+    val vkQueuePresentKHR: Long
 //    // NV_clip_space_w_scaling
 //    val vkCmdSetViewportWScalingNV: Long
 //    // NV_device_diagnostic_checkpoints
@@ -653,6 +653,7 @@ class CapabilitiesDevice internal constructor(
     init {
         apiVersion = capsInstance.apiVersion
         val caps = HashMap<String, Ptr>(274)
+        operator fun String.invoke(): Ptr = caps[this] ?: NULL
         Vulkan10 = provider.checkCapsDeviceVK10(caps, ext)
         Vulkan11 = provider.checkCapsDeviceVK11(caps, ext)
 //        VK_AMD_buffer_marker = AMDBufferMarker.checkCapsDevice(provider, caps, ext)
@@ -819,20 +820,20 @@ class CapabilitiesDevice internal constructor(
 //        VK_NVX_multiview_per_view_attributes = ext.contains("VK_NVX_multiview_per_view_attributes")
 //        vkGetDeviceProcAddr = VK.get(caps, "vkGetDeviceProcAddr")
 //        vkDestroyDevice = VK.get(caps, "vkDestroyDevice")
-        vkGetDeviceQueue = caps["vkGetDeviceQueue"] ?: NULL
-        vkQueueSubmit = caps["vkQueueSubmit"] ?: NULL
-        vkQueueWaitIdle = caps["vkQueueWaitIdle"] ?: NULL
+        vkGetDeviceQueue = "vkGetDeviceQueue"()
+        vkQueueSubmit = "vkQueueSubmit"()
+        vkQueueWaitIdle = "vkQueueWaitIdle"()
 //        vkDeviceWaitIdle = VK.get(caps, "vkDeviceWaitIdle")
-        vkAllocateMemory = caps["vkAllocateMemory"] ?: NULL
+        vkAllocateMemory = "vkAllocateMemory"()
 //        vkFreeMemory = VK.get(caps, "vkFreeMemory")
-        vkMapMemory = caps["vkMapMemory"] ?: NULL
-        vkUnmapMemory = caps["vkUnmapMemory"] ?: NULL
+        vkMapMemory = "vkMapMemory"()
+        vkUnmapMemory = "vkUnmapMemory"()
 //        vkFlushMappedMemoryRanges = VK.get(caps, "vkFlushMappedMemoryRanges")
 //        vkInvalidateMappedMemoryRanges = VK.get(caps, "vkInvalidateMappedMemoryRanges")
 //        vkGetDeviceMemoryCommitment = VK.get(caps, "vkGetDeviceMemoryCommitment")
-        vkBindBufferMemory = caps["vkBindBufferMemory"] ?: NULL
+        vkBindBufferMemory = "vkBindBufferMemory"()
 //        vkBindImageMemory = VK.get(caps, "vkBindImageMemory")
-        vkGetBufferMemoryRequirements = caps["vkGetBufferMemoryRequirements"] ?: NULL
+        vkGetBufferMemoryRequirements = "vkGetBufferMemoryRequirements"()
 //        vkGetImageMemoryRequirements = VK.get(caps, "vkGetImageMemoryRequirements")
 //        vkGetImageSparseMemoryRequirements = VK.get(caps, "vkGetImageSparseMemoryRequirements")
 //        vkQueueBindSparse = VK.get(caps, "vkQueueBindSparse")
@@ -841,8 +842,8 @@ class CapabilitiesDevice internal constructor(
 //        vkResetFences = VK.get(caps, "vkResetFences")
 //        vkGetFenceStatus = VK.get(caps, "vkGetFenceStatus")
 //        vkWaitForFences = VK.get(caps, "vkWaitForFences")
-        vkCreateSemaphore = caps["vkCreateSemaphore"] ?: NULL
-//        vkDestroySemaphore = VK.get(caps, "vkDestroySemaphore")
+        vkCreateSemaphore = "vkCreateSemaphore"()
+        vkDestroySemaphore = "vkDestroySemaphore"()
 //        vkCreateEvent = VK.get(caps, "vkCreateEvent")
 //        vkDestroyEvent = VK.get(caps, "vkDestroyEvent")
 //        vkGetEventStatus = VK.get(caps, "vkGetEventStatus")
@@ -851,25 +852,25 @@ class CapabilitiesDevice internal constructor(
 //        vkCreateQueryPool = VK.get(caps, "vkCreateQueryPool")
 //        vkDestroyQueryPool = VK.get(caps, "vkDestroyQueryPool")
 //        vkGetQueryPoolResults = VK.get(caps, "vkGetQueryPoolResults")
-        vkCreateBuffer = caps["vkCreateBuffer"] ?: NULL
+        vkCreateBuffer = "vkCreateBuffer"()
 //        vkDestroyBuffer = VK.get(caps, "vkDestroyBuffer")
 //        vkCreateBufferView = VK.get(caps, "vkCreateBufferView")
 //        vkDestroyBufferView = VK.get(caps, "vkDestroyBufferView")
 //        vkCreateImage = VK.get(caps, "vkCreateImage")
 //        vkDestroyImage = VK.get(caps, "vkDestroyImage")
 //        vkGetImageSubresourceLayout = VK.get(caps, "vkGetImageSubresourceLayout")
-        vkCreateImageView = caps["vkCreateImageView"] ?: NULL
+        vkCreateImageView = "vkCreateImageView"()
 //        vkDestroyImageView = VK.get(caps, "vkDestroyImageView")
-        vkCreateShaderModule = caps["vkCreateShaderModule"] ?: NULL
+        vkCreateShaderModule = "vkCreateShaderModule"()
 //        vkDestroyShaderModule = VK.get(caps, "vkDestroyShaderModule")
 //        vkCreatePipelineCache = VK.get(caps, "vkCreatePipelineCache")
 //        vkDestroyPipelineCache = VK.get(caps, "vkDestroyPipelineCache")
 //        vkGetPipelineCacheData = VK.get(caps, "vkGetPipelineCacheData")
 //        vkMergePipelineCaches = VK.get(caps, "vkMergePipelineCaches")
-        vkCreateGraphicsPipelines = caps["vkCreateGraphicsPipelines"] ?: NULL
+        vkCreateGraphicsPipelines = "vkCreateGraphicsPipelines"()
 //        vkCreateComputePipelines = VK.get(caps, "vkCreateComputePipelines")
 //        vkDestroyPipeline = VK.get(caps, "vkDestroyPipeline")
-        vkCreatePipelineLayout = caps["vkCreatePipelineLayout"] ?: NULL
+        vkCreatePipelineLayout = "vkCreatePipelineLayout"()
 //        vkDestroyPipelineLayout = VK.get(caps, "vkDestroyPipelineLayout")
 //        vkCreateSampler = VK.get(caps, "vkCreateSampler")
 //        vkDestroySampler = VK.get(caps, "vkDestroySampler")
@@ -881,22 +882,22 @@ class CapabilitiesDevice internal constructor(
 //        vkAllocateDescriptorSets = VK.get(caps, "vkAllocateDescriptorSets")
 //        vkFreeDescriptorSets = VK.get(caps, "vkFreeDescriptorSets")
 //        vkUpdateDescriptorSets = VK.get(caps, "vkUpdateDescriptorSets")
-        vkCreateFramebuffer = caps["vkCreateFramebuffer"] ?: NULL
-        vkDestroyFramebuffer = caps["vkDestroyFramebuffer"] ?: NULL
-        vkCreateRenderPass = caps["vkCreateRenderPass"] ?: NULL
+        vkCreateFramebuffer = "vkCreateFramebuffer"()
+        vkDestroyFramebuffer = "vkDestroyFramebuffer"()
+        vkCreateRenderPass = "vkCreateRenderPass"()
 //        vkDestroyRenderPass = VK.get(caps, "vkDestroyRenderPass")
 //        vkGetRenderAreaGranularity = VK.get(caps, "vkGetRenderAreaGranularity")
-        vkCreateCommandPool = caps["vkCreateCommandPool"] ?: NULL
+        vkCreateCommandPool = "vkCreateCommandPool"()
 //        vkDestroyCommandPool = VK.get(caps, "vkDestroyCommandPool")
-//        vkResetCommandPool = VK.get(caps, "vkResetCommandPool")
-        vkAllocateCommandBuffers = caps["vkAllocateCommandBuffers"] ?: NULL
+        vkResetCommandPool = "vkResetCommandPool"()
+        vkAllocateCommandBuffers = "vkAllocateCommandBuffers"()
 //        vkFreeCommandBuffers = VK.get(caps, "vkFreeCommandBuffers")
-        vkBeginCommandBuffer = caps["vkBeginCommandBuffer"] ?: NULL
-        vkEndCommandBuffer = caps["vkEndCommandBuffer"] ?: NULL
+        vkBeginCommandBuffer = "vkBeginCommandBuffer"()
+        vkEndCommandBuffer = "vkEndCommandBuffer"()
 //        vkResetCommandBuffer = VK.get(caps, "vkResetCommandBuffer")
-//        vkCmdBindPipeline = VK.get(caps, "vkCmdBindPipeline")
-//        vkCmdSetViewport = VK.get(caps, "vkCmdSetViewport")
-//        vkCmdSetScissor = VK.get(caps, "vkCmdSetScissor")
+        vkCmdBindPipeline = "vkCmdBindPipeline"()
+        vkCmdSetViewport = "vkCmdSetViewport"()
+        vkCmdSetScissor = "vkCmdSetScissor"()
 //        vkCmdSetLineWidth = VK.get(caps, "vkCmdSetLineWidth")
 //        vkCmdSetDepthBias = VK.get(caps, "vkCmdSetDepthBias")
 //        vkCmdSetBlendConstants = VK.get(caps, "vkCmdSetBlendConstants")
@@ -906,8 +907,8 @@ class CapabilitiesDevice internal constructor(
 //        vkCmdSetStencilReference = VK.get(caps, "vkCmdSetStencilReference")
 //        vkCmdBindDescriptorSets = VK.get(caps, "vkCmdBindDescriptorSets")
 //        vkCmdBindIndexBuffer = VK.get(caps, "vkCmdBindIndexBuffer")
-//        vkCmdBindVertexBuffers = VK.get(caps, "vkCmdBindVertexBuffers")
-//        vkCmdDraw = VK.get(caps, "vkCmdDraw")
+        vkCmdBindVertexBuffers = "vkCmdBindVertexBuffers"()
+        vkCmdDraw = "vkCmdDraw"()
 //        vkCmdDrawIndexed = VK.get(caps, "vkCmdDrawIndexed")
 //        vkCmdDrawIndirect = VK.get(caps, "vkCmdDrawIndirect")
 //        vkCmdDrawIndexedIndirect = VK.get(caps, "vkCmdDrawIndexedIndirect")
@@ -934,9 +935,9 @@ class CapabilitiesDevice internal constructor(
 //        vkCmdWriteTimestamp = VK.get(caps, "vkCmdWriteTimestamp")
 //        vkCmdCopyQueryPoolResults = VK.get(caps, "vkCmdCopyQueryPoolResults")
 //        vkCmdPushConstants = VK.get(caps, "vkCmdPushConstants")
-//        vkCmdBeginRenderPass = VK.get(caps, "vkCmdBeginRenderPass")
+        vkCmdBeginRenderPass = "vkCmdBeginRenderPass"()
 //        vkCmdNextSubpass = VK.get(caps, "vkCmdNextSubpass")
-//        vkCmdEndRenderPass = VK.get(caps, "vkCmdEndRenderPass")
+        vkCmdEndRenderPass = "vkCmdEndRenderPass"()
 //        vkCmdExecuteCommands = VK.get(caps, "vkCmdExecuteCommands")
 //        vkBindBufferMemory2 = VK.get(caps, "vkBindBufferMemory2")
 //        vkBindImageMemory2 = VK.get(caps, "vkBindImageMemory2")
@@ -1058,11 +1059,11 @@ class CapabilitiesDevice internal constructor(
 //        vkCreateSamplerYcbcrConversionKHR = VK.get(caps, "vkCreateSamplerYcbcrConversionKHR")
 //        vkDestroySamplerYcbcrConversionKHR = VK.get(caps, "vkDestroySamplerYcbcrConversionKHR")
 //        vkGetSwapchainStatusKHR = VK.get(caps, "vkGetSwapchainStatusKHR")
-        vkCreateSwapchainKHR = caps["vkCreateSwapchainKHR"] ?: NULL
-        vkDestroySwapchainKHR = caps["vkDestroySwapchainKHR"] ?: NULL
-        vkGetSwapchainImagesKHR = caps["vkGetSwapchainImagesKHR"] ?: NULL
-        vkAcquireNextImageKHR = caps["vkAcquireNextImageKHR"] ?: NULL
-//        vkQueuePresentKHR = VK.get(caps, "vkQueuePresentKHR")
+        vkCreateSwapchainKHR = "vkCreateSwapchainKHR"()
+        vkDestroySwapchainKHR = "vkDestroySwapchainKHR"()
+        vkGetSwapchainImagesKHR = "vkGetSwapchainImagesKHR"()
+        vkAcquireNextImageKHR = "vkAcquireNextImageKHR"()
+        vkQueuePresentKHR = "vkQueuePresentKHR"()
 //        vkCmdSetViewportWScalingNV = VK.get(caps, "vkCmdSetViewportWScalingNV")
 //        vkCmdSetCheckpointNV = VK.get(caps, "vkCmdSetCheckpointNV")
 //        vkGetQueueCheckpointDataNV = VK.get(caps, "vkGetQueueCheckpointDataNV")

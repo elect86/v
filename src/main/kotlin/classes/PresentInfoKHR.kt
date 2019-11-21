@@ -1,6 +1,17 @@
 package classes
 
+import glm_.BYTES
+import kool.Ptr
+import org.lwjgl.system.MemoryStack
+import org.lwjgl.system.MemoryUtil
+import org.lwjgl.system.MemoryUtil.*
+import org.lwjgl.vulkan.VkPresentInfoKHR
+import org.lwjgl.vulkan.VkPresentInfoKHR.*
 import util.VkResult_Array
+import util.native
+import util.nmallocInt
+import vkk.VkResult
+import vkk.VkStructureType
 import vkk.entities.VkSemaphore
 import vkk.entities.VkSemaphore_Array
 import vkk.entities.VkSwapchainKHR
@@ -73,12 +84,13 @@ class PresentInfoKHR(
     var waitSemaphores: VkSemaphore_Array? = null,
     var swapchains: VkSwapchainKHR_Array,
     var imageIndices: IntArray,
-    var results: VkResult_Array? = null
+    var results: VkResult_Array? = null,
+    var next: Ptr = NULL
 ) {
 
     constructor(
         waitSemaphore: VkSemaphore,
-        swapchain: VkSwapchainKHR,
+        swapchain: VkSwapchainKHR = VkSwapchainKHR.NULL,
         imageIndex: Int,
         result: VkResult_Array? = null
     ) : this(
@@ -87,4 +99,41 @@ class PresentInfoKHR(
         intArrayOf(imageIndex),
         result
     )
+
+    val type get() = VkStructureType.PRESENT_INFO_KHR
+
+    var swapchain: VkSwapchainKHR
+        get() = swapchains[0]
+        set(value) {
+            swapchains[0] = value
+        }
+
+    var imageIndex: Int
+        get() = imageIndices[0]
+        set(value) {
+            imageIndices[0] = value
+        }
+
+    fun <R> native(stack: MemoryStack, block: (Ptr) -> R): R {
+        val ptr = stack.ncalloc(ALIGNOF, 1, SIZEOF)
+        nsType(ptr, type.i)
+        npNext(ptr, next)
+        waitSemaphores?.let {
+            nwaitSemaphoreCount(ptr, it.size)
+            memPutAddress(ptr + PWAITSEMAPHORES, it.native(stack))
+        }
+        nswapchainCount(ptr, swapchains.size)
+        memPutAddress(ptr + PSWAPCHAINS, swapchains.native(stack))
+        return when(val results = results) {
+            null -> block(ptr)
+            else -> {
+                val pResults = stack.nmallocInt(swapchains.size)
+                memPutAddress(ptr + PRESULTS, pResults)
+                block(ptr).also {
+                    for (i in results.indices)
+                        results[i] = VkResult(memGetInt(pResults + i * Int.BYTES))
+                }
+            }
+        }
+    }
 }

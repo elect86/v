@@ -1,10 +1,16 @@
 package identifiers
 
+import classes.PresentInfoKHR
 import classes.SubmitInfo
 import kool.Ptr
 import kool.adr
-import org.lwjgl.system.JNI.callPI
-import org.lwjgl.system.JNI.callPPJI
+import org.lwjgl.system.Checks
+import org.lwjgl.system.JNI
+import org.lwjgl.system.JNI.*
+import org.lwjgl.system.MemoryUtil
+import org.lwjgl.vulkan.VkPresentInfoKHR
+import org.lwjgl.vulkan.VkQueue
+import org.lwjgl.vulkan.VkSubmitInfo
 import vkk.VkResult
 import vkk.entities.VkFence
 import vkk.stak
@@ -21,6 +27,14 @@ class Queue
     /** Returns the device from which this `VkQueue` was retrieved.  */
     val device: Device
 ) : DispatchableHandleDevice(handle, device.capabilities) {
+
+
+    // --- [ vkQueuePresentKHR ] ---
+    infix fun presentKHR(presentInfo: PresentInfoKHR): VkResult = stak { s ->
+        presentInfo.native(s) { pPresentInfo ->
+            VkResult(callPPI(adr, pPresentInfo, capabilities.vkQueuePresentKHR)).apply { check() }
+        }
+    }
 
     // --- [ vkQueueSubmit ] ---
     fun submit(submit: SubmitInfo, fence: VkFence = VkFence.NULL): VkResult = stak { s ->

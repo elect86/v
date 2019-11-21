@@ -1,8 +1,10 @@
 package classes
 
+import glm_.f
+import glm_.vec2.Vec2
+import glm_.vec2.Vec2t
 import kool.Ptr
 import org.lwjgl.system.MemoryStack
-import org.lwjgl.vulkan.VkPipelineShaderStageCreateInfo
 import org.lwjgl.vulkan.VkViewport.*
 
 /**
@@ -73,13 +75,15 @@ import org.lwjgl.vulkan.VkViewport.*
  * }</code></pre>
  */
 class Viewport(
-    var x: Float,
-    var y: Float,
+    var x: Float = 0f,
+    var y: Float = 0f,
     var width: Float,
     var height: Float,
-    var minDepth: Float,
-    var maxDepth: Float
+    var minDepth: Float = 0f,
+    var maxDepth: Float = 1f
 ) {
+
+    constructor(size: Vec2t<out Number>) : this(width = size.x.f, height = size.y.f)
 
     infix fun toPtr(ptr: Ptr) {
         nx(ptr, x)

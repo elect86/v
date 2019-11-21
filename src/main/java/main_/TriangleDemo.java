@@ -414,6 +414,7 @@ public class TriangleDemo {
         IntBuffer pImageCount = memAllocInt(1);
         err = vkGetSwapchainImagesKHR(device, swapChain, pImageCount, null);
         int imageCount = pImageCount.get(0);
+        System.out.println("imageCount: " + imageCount);
         if (err != VK_SUCCESS) {
             throw new AssertionError("Failed to get number of swapchain images: " + translateVulkanResult(err));
         }
@@ -590,8 +591,8 @@ public class TriangleDemo {
         // The triangle will showup upside-down, because Vulkan does not do proper viewport transformation to
         // account for inverted Y axis between the window coordinate system and clip space/NDC
         fb.put(-0.5f).put(-0.5f);
-        fb.put( 0.5f).put(-0.5f);
-        fb.put( 0.0f).put( 0.5f);
+        fb.put(0.5f).put(-0.5f);
+        fb.put(0.0f).put(0.5f);
 
         VkMemoryAllocateInfo memAlloc = VkMemoryAllocateInfo.calloc()
                 .sType(VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO);
@@ -816,9 +817,9 @@ public class TriangleDemo {
         // Specify clear color (cornflower blue)
         VkClearValue.Buffer clearValues = VkClearValue.calloc(1);
         clearValues.color()
-                .float32(0, 100/255.0f)
-                .float32(1, 149/255.0f)
-                .float32(2, 237/255.0f)
+                .float32(0, 100 / 255.0f)
+                .float32(1, 149 / 255.0f)
+                .float32(2, 237 / 255.0f)
                 .float32(3, 1.0f);
 
         // Specify everything to begin a render pass
@@ -955,6 +956,7 @@ public class TriangleDemo {
 
         final class SwapchainRecreator {
             boolean mustRecreate = true;
+
             void recreate() {
                 // Begin the setup command buffer (the one we will use for swapchain/framebuffer creation)
                 VkCommandBufferBeginInfo cmdBufInfo = VkCommandBufferBeginInfo.calloc()

@@ -9,15 +9,11 @@ import org.lwjgl.system.Checks
 import org.lwjgl.system.FunctionProvider
 import org.lwjgl.system.JNI.*
 import org.lwjgl.system.MemoryUtil.*
-import org.lwjgl.vulkan.VkFramebufferCreateInfo
-import org.lwjgl.vulkan.VkImageViewCreateInfo
-import org.lwjgl.vulkan.VkPhysicalDeviceProperties
+import org.lwjgl.system.Pointer
+import org.lwjgl.vulkan.*
 import util.*
-import vkk.VK_CHECK_RESULT
-import vkk.VkMemoryMapFlags
-import vkk.VkResult
+import vkk.*
 import vkk.entities.*
-import vkk.stak
 
 /** Wraps a Vulkan device dispatchable handle. */
 class Device(
@@ -26,7 +22,7 @@ class Device(
 ) : DispatchableHandleDevice(handle, getDeviceCapabilities(handle, physicalDevice, ci, apiVersion)) {
 
     // --- [ vkAcquireNextImageKHR ] ---
-    fun acquireNextImageKHR(swapchain: VkSwapchainKHR, timeout: Long, semaphore: VkSemaphore, fence: VkFence = VkFence(NULL)): Int =
+    fun acquireNextImageKHR(swapchain: VkSwapchainKHR, timeout: Long = -1L, semaphore: VkSemaphore, fence: VkFence = VkFence(NULL)): Int =
         stak {
             val p = it.nmalloc(Int.BYTES, Int.SIZE_BYTES)
             VK_CHECK_RESULT(
@@ -36,10 +32,19 @@ class Device(
         }
 
     // --- [ vkAllocateCommandBuffers ] ---
+    inline fun nAllocateCommandBuffers(pAllocateInfo: Ptr, pCommandBuffers: Ptr): VkResult =
+        VkResult(callPPPI(adr, pAllocateInfo, pCommandBuffers, capabilities.vkAllocateCommandBuffers))
+
     infix fun allocateCommandBuffer(allocateInfo: CommandBufferAllocateInfo): CommandBuffer = stak { s ->
-        CommandBuffer(s.pointerAddress {
-            callPPPI(adr, allocateInfo.run { s.native }, it, capabilities.vkAllocateCommandBuffers)
-        }, this)
+        CommandBuffer(s.pointerAddress { nAllocateCommandBuffers(allocateInfo.run { s.native }, it).check() }, this)
+    }
+
+    infix fun allocateCommandBuffers(allocateInfo: CommandBufferAllocateInfo): Array<CommandBuffer> = stak { s ->
+        val pCommandBuffers = s.nmallocPointer(allocateInfo.commandBufferCount)
+        nAllocateCommandBuffers(allocateInfo.run { s.native }, pCommandBuffers)
+        Array(allocateInfo.commandBufferCount) {
+            CommandBuffer(memGetAddress(pCommandBuffers + Pointer.POINTER_SIZE * it), this)
+        }
     }
 
     // --- [ vkAllocateMemory ] ---
@@ -126,7 +131,7 @@ class Device(
     }
 
     // --- [ vkCreateSemaphore ] ---
-    infix fun createSemaphore(createInfo: SemaphoreCreateInfo): VkSemaphore = stak { s ->
+    fun createSemaphore(createInfo: SemaphoreCreateInfo = SemaphoreCreateInfo()): VkSemaphore = stak { s ->
         VkSemaphore(s.longAddress { callPPPPI(adr, createInfo.run { s.native }, NULL, it, capabilities.vkCreateSemaphore) })
     }
 
@@ -146,6 +151,10 @@ class Device(
     // --- [ vkDestroyFramebuffer ] ---
     infix fun destroy(framebuffer: VkFramebuffer) =
         callPJPV(adr, framebuffer.L, NULL, capabilities.vkDestroyFramebuffer)
+
+    // --- [ vkDestroySemaphore ] ---
+    infix fun destroy(semaphore: VkSemaphore) =
+        callPJPV(adr, semaphore.L, NULL, capabilities.vkDestroySemaphore)
 
     // --- [ vkDestroySwapchainKHR ] ---
     infix fun destroy(swapchain: VkSwapchainKHR) =
@@ -169,7 +178,7 @@ class Device(
     infix fun getSwapchainImagesKHR(swapchain: VkSwapchainKHR): VkImage_Array = stak { s ->
         var pSwapchainImages: Ptr = NULL
         val pSwapchainImageCount = s.nmallocInt()
-        var swapchainImageCount = 0
+        var swapchainImageCount: Int
         var result: VkResult
         do {
             result = nGetSwapchainImagesKHR(swapchain, pSwapchainImageCount)
@@ -185,6 +194,10 @@ class Device(
     // --- [ vkMapMemory ] ---
     fun mapMemory(memory: VkDeviceMemory, offset: VkDeviceSize, size: VkDeviceSize, flags: VkMemoryMapFlags = 0): Ptr =
         stak.pointerAddress { callPJJJPI(adr, memory.L, offset.L, size.L, flags, it, capabilities.vkMapMemory) }
+
+    // --- [ vkResetCommandPool ] ---
+    fun resetCommandPool(commandPool: VkCommandPool, flags: VkCommandPoolResetFlags = 0): VkResult =
+        VkResult(callPJI(adr, commandPool.L, flags, capabilities.vkResetCommandPool)).apply { check() }
 
     // --- [ vkUnmapMemory ] ---
     infix fun unmapMemory(memory: VkDeviceMemory) = callPJV(adr, memory.L, capabilities.vkUnmapMemory)

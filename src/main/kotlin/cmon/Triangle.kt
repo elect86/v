@@ -10,11 +10,9 @@ import kool.adr
 import kool.free
 import kool.rem
 import main_.VKUtil.glslToSpirv
-import main_.VKUtil.translateVulkanResult
 import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.glfw.GLFWWindowSizeCallbackI
 import org.lwjgl.system.MemoryUtil.*
-import org.lwjgl.vulkan.*
 import org.lwjgl.vulkan.EXTDebugReport.VK_EXT_DEBUG_REPORT_EXTENSION_NAME
 import org.lwjgl.vulkan.KHRSwapchain.VK_KHR_SWAPCHAIN_EXTENSION_NAME
 import org.lwjgl.vulkan.VK10.*
@@ -26,7 +24,6 @@ import util.bufferOf
 import util.createSurface
 import vkk.*
 import vkk.entities.*
-import java.io.IOException
 
 fun main() {
 
@@ -66,7 +63,7 @@ fun main() {
     val queue = device.getQueue(queueFamilyIndex)
     val renderPass = createRenderPass(device, format)
     val renderCommandPool = createCommandPool(device, queueFamilyIndex)
-    val (vertexBuffer, pipelineInfo) = createVertices(device, memoryProperties)
+    val pipelineInfo = createVertices(device, memoryProperties)
     val pipeline = createPipeline(device, renderPass, pipelineInfo)
 
     val swapchainRecreator = object {
@@ -80,29 +77,22 @@ fun main() {
                 val oldChain = Triangle.swapchain
                 // Create the swapchain (this will also add a memory barrier to initialize the framebuffer images)
                 createSwapChain(
-                    device, physicalDevice, surface, oldChain, setupCommandBuffer,
-                    Triangle.size, format, colorSpace
+                    device, physicalDevice, surface, oldChain, Triangle.size,
+                    format, colorSpace
                 )
             }
             submitCommanBuffer(queue, setupCommandBuffer)
             queue.waitIdle()
 
-            Triangle.framebuffers?.forEach { device destroy it }
-//            Triangle.framebuffers = createFramebuffers(device, Triangle.swapchain!!, renderPass.L, Triangle.width, Triangle.height)
-//            // Create render command buffers
-//            if (Triangle.renderCommandBuffers != null) {
-//                vkResetCommandPool(device!!, renderCommandPool.L, VK_FLAGS_NONE)
-//            }
-//            Triangle.renderCommandBuffers = Triangle.createRenderCommandBuffers(
-//                device,
-//                renderCommandPool.L,
-//                Triangle.framebuffers!!,
-//                renderPass.L,
-//                Triangle.width,
-//                Triangle.height,
-//                pipeline,
-//                vertices.verticesBuf
-//            )
+            Triangle.framebuffers.forEach { device destroy it }
+            Triangle.framebuffers = createFramebuffers(device, renderPass, Triangle.size)
+            // Create render command buffers
+            if (Triangle.renderCommandBuffers.isNotEmpty())
+                device.resetCommandPool(renderCommandPool)
+            Triangle.renderCommandBuffers = createRenderCommandBuffers(
+                device, renderCommandPool, Triangle.framebuffers, renderPass,
+                Triangle.size, pipeline, Triangle.verticesBuf
+            )
 
             dirty = false
         }
@@ -118,31 +108,6 @@ fun main() {
     glfwSetWindowSizeCallback(window.handle.L, windowSizeCallback)
     glfwShowWindow(window.handle.L)
 
-    // Pre-allocate everything needed in the render loop
-
-    var imageIndex = 0
-    var currentBuffer = 0
-    var commandBuffer: CommandBuffer? = null
-    var swapchain = VkSwapchainKHR.NULL
-    var imageAcquiredSemaphore = VkSemaphore.NULL
-    var renderCompleteSemaphore = VkSemaphore.NULL
-
-    // Info struct to create a semaphore
-    val semaphoreCreateInfo = SemaphoreCreateInfo()
-
-    // Info struct to submit a command buffer which will wait on the semaphore
-    val pWaitDstStageMask = memAllocInt(1)
-    pWaitDstStageMask.put(0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
-    val submitInfo = SubmitInfo(
-        waitSemaphore = imageAcquiredSemaphore,
-        waitDstStageMask = VkPipelineStage.COLOR_ATTACHMENT_OUTPUT_BIT.i,
-        commandBuffer = commandBuffer,
-        signalSemaphore = renderCompleteSemaphore
-    )
-
-    // Info struct to present the current swapchain image to the display
-    val presentInfo = PresentInfoKHR(renderCompleteSemaphore, swapchain, imageIndex)
-
     // The render loop
     while (!window.shouldClose) {
         // Handle window messages. Resize events happen exactly here.
@@ -152,50 +117,41 @@ fun main() {
             swapchainRecreator.run()
 
         // Create a semaphore to wait for the swapchain to acquire the next image
-        imageAcquiredSemaphore = device createSemaphore semaphoreCreateInfo
+        val imageAcquiredSemaphore = device.createSemaphore()
 
         // Create a semaphore to wait for the render to complete, before presenting
-        renderCompleteSemaphore = device createSemaphore semaphoreCreateInfo
+        val renderCompleteSemaphore = device.createSemaphore()
 
-        // Get next image from the swap chain (back/front buffer).
-        // This will setup the imageAquiredSemaphore to be signalled when the operation is complete
-//        imageIndex = device.acquireNextImageKHR(Triangle.swapchain!!.handle, Triangle.UINT64_MAX, imageAcquiredSemaphore)
-//        currentBuffer = imageIndex
+        // Info struct to present the current swapchain image to the display
+        val presentInfo = PresentInfoKHR(
+            waitSemaphore = renderCompleteSemaphore,
+            // Get next image from the swap chain (back/front buffer).
+            // This will setup the imageAquiredSemaphore to be signalled when the operation is complete
+            imageIndex = device.acquireNextImageKHR(Triangle.swapchain, semaphore = imageAcquiredSemaphore)
+        )
 
-        // Select the command buffer for the current framebuffer image/attachment
-//        commandBuffer = Triangle.renderCommandBuffers!![currentBuffer]
+        // Info struct to submit a command buffer which will wait on the semaphore
+        val submitInfo = SubmitInfo(
+            waitSemaphore = imageAcquiredSemaphore,
+            waitDstStageMask = VkPipelineStage.COLOR_ATTACHMENT_OUTPUT_BIT.i,
+            signalSemaphore = renderCompleteSemaphore,
+            // Select the command buffer for the current framebuffer image/attachment
+            commandBuffer = Triangle.renderCommandBuffers[presentInfo.imageIndex]
+        )
 
-//        // Submit to the graphics queue
-//        err = vkQueueSubmit(queue, submitInfo, VK_NULL_HANDLE)
-//        if (err != VK_SUCCESS) {
-//            throw AssertionError("Failed to submit render queue: " + translateVulkanResult(err))
-//        }
-//
-//        // Present the current buffer to the swap chain
-//        // This will display the image
-//        pSwapchains.put(0, Triangle.swapchain!!.swapchainHandle)
-//        err = vkQueuePresentKHR(queue, presentInfo)
-//        if (err != VK_SUCCESS) {
-//            throw AssertionError("Failed to present the swapchain image: " + translateVulkanResult(err))
-//        }
+        // Submit to the graphics queue
+        queue.submit(submitInfo)
+
+        // Present the current buffer to the swap chain
+        // This will display the image
+        queue presentKHR presentInfo.apply { swapchain = Triangle.swapchain }
 //        // Create and submit post present barrier
-//        vkQueueWaitIdle(queue)
-//
-//        // Destroy this semaphore (we will create a new one in the next frame)
-//        vkDestroySemaphore(device, pImageAcquiredSemaphore.get(0), null)
-//        vkDestroySemaphore(device, pRenderCompleteSemaphore.get(0), null)
-//
-//        MemoryStack.stackGet().reset()
+        queue.waitIdle()
+        // Destroy this semaphore (we will create a new one in the next frame)
+        device destroy imageAcquiredSemaphore
+        device destroy renderCompleteSemaphore
     }
-//    presentInfo.free()
-//    memFree(pWaitDstStageMask)
-//    submitInfo.free()
-//    memFree(pImageAcquiredSemaphore)
-//    memFree(pRenderCompleteSemaphore)
-//    semaphoreCreateInfo.free()
-//    memFree(pSwapchains)
-//    memFree(pCommandBuffers)
-//
+
 ////    vkDestroyDebugReportCallbackEXT(instance, debugCallbackHandle.L, null)
 //
 ////    windowSizeCallback.free()
@@ -321,8 +277,7 @@ fun createRenderPass(device: Device, format: VkFormat): VkRenderPass {
     return device createRenderPass renderPassInfo
 }
 
-fun createVertices(device: Device, deviceMemoryProperties: PhysicalDeviceMemoryProperties)
-        : Pair<VkBuffer, PipelineVertexInputStateCreateInfo> {
+fun createVertices(device: Device, deviceMemoryProperties: PhysicalDeviceMemoryProperties): PipelineVertexInputStateCreateInfo {
 
     // The triangle will showup upside-down, because Vulkan does not do proper viewport transformation to
     // account for inverted Y axis between the window coordinate system and clip space/NDC
@@ -338,9 +293,9 @@ fun createVertices(device: Device, deviceMemoryProperties: PhysicalDeviceMemoryP
         size = VkDeviceSize(vertexBuffer),
         usageFlags = VkBufferUsage.VERTEX_BUFFER_BIT.i
     )
-    val verticesBuf = device createBuffer bufInfo
+    Triangle.verticesBuf = device createBuffer bufInfo
 
-    val memReqs = device getBufferMemoryRequirements verticesBuf
+    val memReqs = device getBufferMemoryRequirements Triangle.verticesBuf
     val (memoryTypeIndex, _) = getMemoryType(
         deviceMemoryProperties,
         memReqs.memoryTypeBits,
@@ -354,7 +309,7 @@ fun createVertices(device: Device, deviceMemoryProperties: PhysicalDeviceMemoryP
         memCopy(vertexBuffer.adr, data, vertexBuffer.rem.L)
     }
     vertexBuffer.free()
-    device.bindBufferMemory(verticesBuf, verticesMem)
+    device.bindBufferMemory(Triangle.verticesBuf, verticesMem)
 
     // Binding description
     val bindingDescriptor = VertexInputBindingDescription(
@@ -373,7 +328,7 @@ fun createVertices(device: Device, deviceMemoryProperties: PhysicalDeviceMemoryP
     )
 
     // Assign to vertex buffer
-    return verticesBuf to PipelineVertexInputStateCreateInfo(bindingDescriptor, attributeDescriptions)
+    return PipelineVertexInputStateCreateInfo(bindingDescriptor, attributeDescriptions)
 }
 
 fun getMemoryType(
@@ -479,8 +434,13 @@ private fun loadModule(classPath: String, device: Device, stage: VkShaderStage):
 }
 
 fun createSwapChain(
-    device: Device, physicalDevice: PhysicalDevice, surface: VkSurfaceKHR, oldSwapChain: VkSwapchainKHR,
-    commandBuffer: CommandBuffer, newSize: Vec2i, format: VkFormat, colorSpace: VkColorSpaceKHR
+    device: Device,
+    physicalDevice: PhysicalDevice,
+    surface: VkSurfaceKHR,
+    oldSwapChain: VkSwapchainKHR,
+    newSize: Vec2i,
+    format: VkFormat,
+    colorSpace: VkColorSpaceKHR
 ) {
     // Get physical device surface properties and formats
     val surfCaps = physicalDevice getSurfaceCapabilitiesKHR surface
@@ -545,8 +505,9 @@ fun createSwapChain(
         subresourceRange = ImageSubresourceRange(
             aspectMask = VkImageAspect.COLOR_BIT.i,
             levelCount = 1,
-            layerCount = 1)
+            layerCount = 1
         )
+    )
     Triangle.imageViews = device.createImageViewArray(colorAttachmentView, Triangle.images)
 }
 
@@ -556,18 +517,63 @@ fun submitCommanBuffer(queue: Queue, commandBuffer: CommandBuffer) {
     queue.submit(submitInfo)
 }
 
-fun createFramebuffers(
-    device: Device,
-    swapchain: Triangle.Swapchain,
-    renderPass: VkRenderPass,
-    size: Vec2i
-): VkFramebuffer_Array {
+fun createFramebuffers(device: Device, renderPass: VkRenderPass, size: Vec2i): VkFramebuffer_Array {
     val fci = FramebufferCreateInfo(
         dimension = Vec3i(size, 1),
         renderPass = renderPass
     )
     // Create a framebuffer for each swapchain image
-    return device.createFramebufferArray(fci, swapchain.imageViews)
+    return device.createFramebufferArray(fci, Triangle.imageViews)
+}
+
+fun createRenderCommandBuffers(
+    device: Device, commandPool: VkCommandPool, framebuffers: VkFramebuffer_Array,
+    renderPass: VkRenderPass, size: Vec2i, pipeline: VkPipeline, verticesBuf: VkBuffer
+): Array<CommandBuffer> {
+    // Create the render command buffers (one command buffer per framebuffer image)
+    val cmdBufAllocateInfo = CommandBufferAllocateInfo(commandPool, commandBufferCount = framebuffers.size)
+    val renderCommandBuffers = device allocateCommandBuffers cmdBufAllocateInfo
+
+    // Create the command buffer begin structure
+    val cmdBufInfo = CommandBufferBeginInfo()
+
+    // Specify clear color (cornflower blue)
+    val clearValue = ClearValue(100 / 255f, 149 / 255f, 237 / 255f, 1f)
+
+    // Specify everything to begin a render pass
+    val renderPassBeginInfo = RenderPassBeginInfo(
+        renderPass = renderPass,
+        clearValue = clearValue,
+        renderArea = Rect2D(size)
+    )
+
+    for (i in renderCommandBuffers.indices) {
+        // Set target frame buffer
+        renderPassBeginInfo.framebuffer = framebuffers[i]
+
+        renderCommandBuffers[i].record(cmdBufInfo) {
+
+            it.renderPass(renderPassBeginInfo) {
+
+                // Update dynamic viewport state
+                it setViewport Viewport(size)
+
+                // Update dynamic scissor state
+                it setScissor Rect2D(size)
+
+                // Bind the rendering pipeline (including the shaders)
+                it.bindPipeline(VkPipelineBindPoint.GRAPHICS, pipeline)
+
+                // Bind triangle vertices
+                it.bindVertexBuffers(verticesBuf)
+
+                // Draw triangle
+                it.draw(3)
+            }
+
+        }
+    }
+    return renderCommandBuffers
 }
 
 object Triangle {
@@ -576,163 +582,14 @@ object Triangle {
 
     val layers = listOf("VK_LAYER_LUNARG_standard_validation")
 
-    /**
-     * This is just -1L, but it is nicer as a symbolic constant.
-     */
-    val UINT64_MAX = -0x1L
-
     /*
      * All resources that must be reallocated on window resize.
      */
     var swapchain = VkSwapchainKHR.NULL
     var images = VkImage_Array()
     var imageViews = VkImageView_Array()
-    var framebuffers: VkFramebuffer_Array? = null
+    var framebuffers = VkFramebuffer_Array()
     var size = Vec2i()
-    var renderCommandBuffers: Array<CommandBuffer>? = null
-
-    class DeviceAndGraphicsQueueFamily {
-        internal var device: VkDevice? = null
-        internal var queueFamilyIndex: Int = 0
-        internal var memoryProperties: VkPhysicalDeviceMemoryProperties? = null
-    }
-
-
-    class Swapchain {
-        var handle = VkSwapchainKHR.NULL
-        var images = VkImage_Array()
-        var imageViews = VkImageView_Array()
-    }
-
-
-    @Throws(IOException::class)
-    fun loadShader(classPath: String, device: VkDevice?, stage: Int): Long {
-        val shaderCode = glslToSpirv(classPath, stage)
-        val err: Int
-        val moduleCreateInfo = VkShaderModuleCreateInfo.calloc()
-            .sType(VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO)
-            .pCode(shaderCode)
-        val pShaderModule = memAllocLong(1)
-        err = vkCreateShaderModule(device!!, moduleCreateInfo, null, pShaderModule)
-        val shaderModule = pShaderModule.get(0)
-        memFree(pShaderModule)
-        if (err != VK_SUCCESS) {
-            throw AssertionError("Failed to create shader module: " + translateVulkanResult(err))
-        }
-        return shaderModule
-    }
-
-    @Throws(IOException::class)
-    fun loadShader(device: VkDevice?, classPath: String, stage: Int): VkPipelineShaderStageCreateInfo {
-        return VkPipelineShaderStageCreateInfo.calloc()
-            .sType(VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO)
-            .stage(stage)
-            .module(loadShader(classPath, device, stage))
-            .pName(memUTF8("main"))
-    }
-
-
-    class Vertices {
-        internal var verticesBuf: Long = 0
-        internal var createInfo: VkPipelineVertexInputStateCreateInfo? = null
-    }
-
-
-    fun createRenderCommandBuffers(
-        device: VkDevice?, commandPool: Long, framebuffers: LongArray, renderPass: Long, width: Int, height: Int,
-        pipeline: Long, verticesBuf: Long
-    ): Array<VkCommandBuffer> {
-        // Create the render command buffers (one command buffer per framebuffer image)
-        val cmdBufAllocateInfo = VkCommandBufferAllocateInfo.calloc()
-            .sType(VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO)
-            .commandPool(commandPool)
-            .level(VK_COMMAND_BUFFER_LEVEL_PRIMARY)
-            .commandBufferCount(framebuffers.size)
-        val pCommandBuffer = memAllocPointer(framebuffers.size)
-        var err = vkAllocateCommandBuffers(device!!, cmdBufAllocateInfo, pCommandBuffer)
-        if (err != VK_SUCCESS) {
-            throw AssertionError("Failed to allocate render command buffer: " + translateVulkanResult(err))
-        }
-        val renderCommandBuffers = arrayOfNulls<VkCommandBuffer>(framebuffers.size)
-        for (i in framebuffers.indices) {
-            renderCommandBuffers[i] = VkCommandBuffer(pCommandBuffer.get(i), device!!)
-        }
-        memFree(pCommandBuffer)
-        cmdBufAllocateInfo.free()
-
-        // Create the command buffer begin structure
-        val cmdBufInfo = VkCommandBufferBeginInfo.calloc()
-            .sType(VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO)
-
-        // Specify clear color (cornflower blue)
-        val clearValues = VkClearValue.calloc(1)
-        clearValues.color()
-            .float32(0, 100 / 255.0f)
-            .float32(1, 149 / 255.0f)
-            .float32(2, 237 / 255.0f)
-            .float32(3, 1.0f)
-
-        // Specify everything to begin a render pass
-        val renderPassBeginInfo = VkRenderPassBeginInfo.calloc()
-            .sType(VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO)
-            .renderPass(renderPass)
-            .pClearValues(clearValues)
-        val renderArea = renderPassBeginInfo.renderArea()
-        renderArea.offset().set(0, 0)
-        renderArea.extent().set(width, height)
-
-        for (i in renderCommandBuffers.indices) {
-            // Set target frame buffer
-            renderPassBeginInfo.framebuffer(framebuffers[i])
-
-            err = vkBeginCommandBuffer(renderCommandBuffers[i], cmdBufInfo)
-            if (err != VK_SUCCESS) {
-                throw AssertionError("Failed to begin render command buffer: " + translateVulkanResult(err))
-            }
-
-            vkCmdBeginRenderPass(renderCommandBuffers[i], renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE)
-
-            // Update dynamic viewport state
-            val viewport = VkViewport.calloc(1)
-                .height(height.toFloat())
-                .width(width.toFloat())
-                .minDepth(0.0f)
-                .maxDepth(1.0f)
-            vkCmdSetViewport(renderCommandBuffers[i], 0, viewport)
-            viewport.free()
-
-            // Update dynamic scissor state
-            val scissor = VkRect2D.calloc(1)
-            scissor.extent().set(width, height)
-            scissor.offset().set(0, 0)
-            vkCmdSetScissor(renderCommandBuffers[i], 0, scissor)
-            scissor.free()
-
-            // Bind the rendering pipeline (including the shaders)
-            vkCmdBindPipeline(renderCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline)
-
-            // Bind triangle vertices
-            val offsets = memAllocLong(1)
-            offsets.put(0, 0L)
-            val pBuffers = memAllocLong(1)
-            pBuffers.put(0, verticesBuf)
-            vkCmdBindVertexBuffers(renderCommandBuffers[i], 0, pBuffers, offsets)
-            memFree(pBuffers)
-            memFree(offsets)
-
-            // Draw triangle
-            vkCmdDraw(renderCommandBuffers[i], 3, 1, 0, 0)
-
-            vkCmdEndRenderPass(renderCommandBuffers[i])
-
-            err = vkEndCommandBuffer(renderCommandBuffers[i])
-            if (err != VK_SUCCESS) {
-                throw AssertionError("Failed to begin render command buffer: " + translateVulkanResult(err))
-            }
-        }
-        renderPassBeginInfo.free()
-        clearValues.free()
-        cmdBufInfo.free()
-        return renderCommandBuffers.filterNotNull().toTypedArray()
-    }
+    var renderCommandBuffers: Array<CommandBuffer> = emptyArray()
+    var verticesBuf = VkBuffer.NULL
 }

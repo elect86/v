@@ -183,6 +183,7 @@ class CapabilitiesInstance internal constructor(
 
     init {
         val caps = HashMap<String, Ptr>(79)
+        operator fun String.invoke(): Ptr = caps[this] ?: NULL
         Vulkan10 = provider.checkCapsInstanceVK10(caps, ext)
         Vulkan11 = provider.checkCapsInstanceVK11(caps, ext)
 //        VK_EXT_acquire_xlib_display = EXTAcquireXlibDisplay.checkCapsInstance(provider, caps, ext)
@@ -230,121 +231,121 @@ class CapabilitiesInstance internal constructor(
 //        NVCoverageReductionMode.checkCapsInstance(provider, caps, deviceExt)
 //        VK_NV_external_memory_capabilities = NVExternalMemoryCapabilities.checkCapsInstance(provider, caps, ext)
 //        NVXDeviceGeneratedCommands.checkCapsInstance(provider, caps, deviceExt)
-        vkDestroyInstance = caps["vkDestroyInstance"] ?: NULL
-        vkEnumeratePhysicalDevices = caps["vkEnumeratePhysicalDevices"] ?: NULL
-        vkGetPhysicalDeviceFeatures = caps["vkGetPhysicalDeviceFeatures"] ?: NULL
-        vkGetPhysicalDeviceFormatProperties = caps["vkGetPhysicalDeviceFormatProperties"] ?: NULL
+        vkDestroyInstance = "vkDestroyInstance"()
+        vkEnumeratePhysicalDevices = "vkEnumeratePhysicalDevices"()
+        vkGetPhysicalDeviceFeatures = "vkGetPhysicalDeviceFeatures"()
+        vkGetPhysicalDeviceFormatProperties = "vkGetPhysicalDeviceFormatProperties"()
         vkGetPhysicalDeviceImageFormatProperties =
-            caps["vkGetPhysicalDeviceImageFormatProperties"] ?: NULL
-        vkGetPhysicalDeviceProperties = caps["vkGetPhysicalDeviceProperties"] ?: NULL
+            "vkGetPhysicalDeviceImageFormatProperties"()
+        vkGetPhysicalDeviceProperties = "vkGetPhysicalDeviceProperties"()
         vkGetPhysicalDeviceQueueFamilyProperties =
-            caps["vkGetPhysicalDeviceQueueFamilyProperties"] ?: NULL
-        vkGetPhysicalDeviceMemoryProperties = caps["vkGetPhysicalDeviceMemoryProperties"] ?: NULL
-        vkCreateDevice = caps["vkCreateDevice"] ?: NULL
-        vkEnumerateDeviceExtensionProperties = caps["vkEnumerateDeviceExtensionProperties"] ?: NULL
-        vkEnumerateDeviceLayerProperties = caps["vkEnumerateDeviceLayerProperties"] ?: NULL
+            "vkGetPhysicalDeviceQueueFamilyProperties"()
+        vkGetPhysicalDeviceMemoryProperties = "vkGetPhysicalDeviceMemoryProperties"()
+        vkCreateDevice = "vkCreateDevice"()
+        vkEnumerateDeviceExtensionProperties = "vkEnumerateDeviceExtensionProperties"()
+        vkEnumerateDeviceLayerProperties = "vkEnumerateDeviceLayerProperties"()
         vkGetPhysicalDeviceSparseImageFormatProperties =
-            caps["vkGetPhysicalDeviceSparseImageFormatProperties"] ?: NULL
-        vkEnumeratePhysicalDeviceGroups = caps["vkEnumeratePhysicalDeviceGroups"] ?: NULL
-        vkGetPhysicalDeviceFeatures2 = caps["vkGetPhysicalDeviceFeatures2"] ?: NULL
-        vkGetPhysicalDeviceProperties2 = caps["vkGetPhysicalDeviceProperties2"] ?: NULL
-        vkGetPhysicalDeviceFormatProperties2 = caps["vkGetPhysicalDeviceFormatProperties2"] ?: NULL
+            "vkGetPhysicalDeviceSparseImageFormatProperties"()
+        vkEnumeratePhysicalDeviceGroups = "vkEnumeratePhysicalDeviceGroups"()
+        vkGetPhysicalDeviceFeatures2 = "vkGetPhysicalDeviceFeatures2"()
+        vkGetPhysicalDeviceProperties2 = "vkGetPhysicalDeviceProperties2"()
+        vkGetPhysicalDeviceFormatProperties2 = "vkGetPhysicalDeviceFormatProperties2"()
         vkGetPhysicalDeviceImageFormatProperties2 =
-            caps["vkGetPhysicalDeviceImageFormatProperties2"] ?: NULL
+            "vkGetPhysicalDeviceImageFormatProperties2"()
         vkGetPhysicalDeviceQueueFamilyProperties2 =
-            caps["vkGetPhysicalDeviceQueueFamilyProperties2"] ?: NULL
-        vkGetPhysicalDeviceMemoryProperties2 = caps["vkGetPhysicalDeviceMemoryProperties2"] ?: NULL
+            "vkGetPhysicalDeviceQueueFamilyProperties2"()
+        vkGetPhysicalDeviceMemoryProperties2 = "vkGetPhysicalDeviceMemoryProperties2"()
         vkGetPhysicalDeviceSparseImageFormatProperties2 =
-            caps["vkGetPhysicalDeviceSparseImageFormatProperties2"] ?: NULL
+            "vkGetPhysicalDeviceSparseImageFormatProperties2"()
         vkGetPhysicalDeviceExternalBufferProperties =
-            caps["vkGetPhysicalDeviceExternalBufferProperties"] ?: NULL
+            "vkGetPhysicalDeviceExternalBufferProperties"()
         vkGetPhysicalDeviceExternalFenceProperties =
-            caps["vkGetPhysicalDeviceExternalFenceProperties"] ?: NULL
+            "vkGetPhysicalDeviceExternalFenceProperties"()
         vkGetPhysicalDeviceExternalSemaphoreProperties =
-            caps["vkGetPhysicalDeviceExternalSemaphoreProperties"] ?: NULL
-        vkAcquireXlibDisplayEXT = caps["vkAcquireXlibDisplayEXT"] ?: NULL
-        vkGetRandROutputDisplayEXT = caps["vkGetRandROutputDisplayEXT"] ?: NULL
+            "vkGetPhysicalDeviceExternalSemaphoreProperties"()
+        vkAcquireXlibDisplayEXT = "vkAcquireXlibDisplayEXT"()
+        vkGetRandROutputDisplayEXT = "vkGetRandROutputDisplayEXT"()
         vkGetPhysicalDeviceCalibrateableTimeDomainsEXT =
-            caps["vkGetPhysicalDeviceCalibrateableTimeDomainsEXT"] ?: NULL
-        vkCreateDebugReportCallbackEXT = caps["vkCreateDebugReportCallbackEXT"] ?: NULL
-        vkDestroyDebugReportCallbackEXT = caps["vkDestroyDebugReportCallbackEXT"] ?: NULL
-        vkDebugReportMessageEXT = caps["vkDebugReportMessageEXT"] ?: NULL
-        vkCreateDebugUtilsMessengerEXT = caps["vkCreateDebugUtilsMessengerEXT"] ?: NULL
-        vkDestroyDebugUtilsMessengerEXT = caps["vkDestroyDebugUtilsMessengerEXT"] ?: NULL
-        vkSubmitDebugUtilsMessageEXT = caps["vkSubmitDebugUtilsMessageEXT"] ?: NULL
-        vkReleaseDisplayEXT = caps["vkReleaseDisplayEXT"] ?: NULL
+            "vkGetPhysicalDeviceCalibrateableTimeDomainsEXT"()
+        vkCreateDebugReportCallbackEXT = "vkCreateDebugReportCallbackEXT"()
+        vkDestroyDebugReportCallbackEXT = "vkDestroyDebugReportCallbackEXT"()
+        vkDebugReportMessageEXT = "vkDebugReportMessageEXT"()
+        vkCreateDebugUtilsMessengerEXT = "vkCreateDebugUtilsMessengerEXT"()
+        vkDestroyDebugUtilsMessengerEXT = "vkDestroyDebugUtilsMessengerEXT"()
+        vkSubmitDebugUtilsMessageEXT = "vkSubmitDebugUtilsMessageEXT"()
+        vkReleaseDisplayEXT = "vkReleaseDisplayEXT"()
         vkGetPhysicalDeviceSurfaceCapabilities2EXT =
-            caps["vkGetPhysicalDeviceSurfaceCapabilities2EXT"] ?: NULL
+            "vkGetPhysicalDeviceSurfaceCapabilities2EXT"()
         vkGetPhysicalDeviceSurfacePresentModes2EXT =
-            caps["vkGetPhysicalDeviceSurfacePresentModes2EXT"] ?: NULL
-        vkCreateHeadlessSurfaceEXT = caps["vkCreateHeadlessSurfaceEXT"] ?: NULL
-        vkCreateMetalSurfaceEXT = caps["vkCreateMetalSurfaceEXT"] ?: NULL
+            "vkGetPhysicalDeviceSurfacePresentModes2EXT"()
+        vkCreateHeadlessSurfaceEXT = "vkCreateHeadlessSurfaceEXT"()
+        vkCreateMetalSurfaceEXT = "vkCreateMetalSurfaceEXT"()
         vkGetPhysicalDeviceMultisamplePropertiesEXT =
-            caps["vkGetPhysicalDeviceMultisamplePropertiesEXT"] ?: NULL
+            "vkGetPhysicalDeviceMultisamplePropertiesEXT"()
         vkGetPhysicalDevicePresentRectanglesKHR =
-            caps["vkGetPhysicalDevicePresentRectanglesKHR"] ?: NULL
-        vkEnumeratePhysicalDeviceGroupsKHR = caps["vkEnumeratePhysicalDeviceGroupsKHR"] ?: NULL
+            "vkGetPhysicalDevicePresentRectanglesKHR"()
+        vkEnumeratePhysicalDeviceGroupsKHR = "vkEnumeratePhysicalDeviceGroupsKHR"()
         vkGetPhysicalDeviceDisplayPropertiesKHR =
-            caps["vkGetPhysicalDeviceDisplayPropertiesKHR"] ?: NULL
+            "vkGetPhysicalDeviceDisplayPropertiesKHR"()
         vkGetPhysicalDeviceDisplayPlanePropertiesKHR =
-            caps["vkGetPhysicalDeviceDisplayPlanePropertiesKHR"] ?: NULL
-        vkGetDisplayPlaneSupportedDisplaysKHR = caps["vkGetDisplayPlaneSupportedDisplaysKHR"] ?: NULL
-        vkGetDisplayModePropertiesKHR = caps["vkGetDisplayModePropertiesKHR"] ?: NULL
-        vkCreateDisplayModeKHR = caps["vkCreateDisplayModeKHR"] ?: NULL
-        vkGetDisplayPlaneCapabilitiesKHR = caps["vkGetDisplayPlaneCapabilitiesKHR"] ?: NULL
-        vkCreateDisplayPlaneSurfaceKHR = caps["vkCreateDisplayPlaneSurfaceKHR"] ?: NULL
+            "vkGetPhysicalDeviceDisplayPlanePropertiesKHR"()
+        vkGetDisplayPlaneSupportedDisplaysKHR = "vkGetDisplayPlaneSupportedDisplaysKHR"()
+        vkGetDisplayModePropertiesKHR = "vkGetDisplayModePropertiesKHR"()
+        vkCreateDisplayModeKHR = "vkCreateDisplayModeKHR"()
+        vkGetDisplayPlaneCapabilitiesKHR = "vkGetDisplayPlaneCapabilitiesKHR"()
+        vkCreateDisplayPlaneSurfaceKHR = "vkCreateDisplayPlaneSurfaceKHR"()
         vkGetPhysicalDeviceExternalFencePropertiesKHR =
-            caps["vkGetPhysicalDeviceExternalFencePropertiesKHR"] ?: NULL
+            "vkGetPhysicalDeviceExternalFencePropertiesKHR"()
         vkGetPhysicalDeviceExternalBufferPropertiesKHR =
-            caps["vkGetPhysicalDeviceExternalBufferPropertiesKHR"] ?: NULL
+            "vkGetPhysicalDeviceExternalBufferPropertiesKHR"()
         vkGetPhysicalDeviceExternalSemaphorePropertiesKHR =
-            caps["vkGetPhysicalDeviceExternalSemaphorePropertiesKHR"] ?: NULL
+            "vkGetPhysicalDeviceExternalSemaphorePropertiesKHR"()
         vkGetPhysicalDeviceDisplayProperties2KHR =
-            caps["vkGetPhysicalDeviceDisplayProperties2KHR"] ?: NULL
+            "vkGetPhysicalDeviceDisplayProperties2KHR"()
         vkGetPhysicalDeviceDisplayPlaneProperties2KHR =
-            caps["vkGetPhysicalDeviceDisplayPlaneProperties2KHR"] ?: NULL
-        vkGetDisplayModeProperties2KHR = caps["vkGetDisplayModeProperties2KHR"] ?: NULL
-        vkGetDisplayPlaneCapabilities2KHR = caps["vkGetDisplayPlaneCapabilities2KHR"] ?: NULL
-        vkGetPhysicalDeviceFeatures2KHR = caps["vkGetPhysicalDeviceFeatures2KHR"] ?: NULL
-        vkGetPhysicalDeviceProperties2KHR = caps["vkGetPhysicalDeviceProperties2KHR"] ?: NULL
+            "vkGetPhysicalDeviceDisplayPlaneProperties2KHR"()
+        vkGetDisplayModeProperties2KHR = "vkGetDisplayModeProperties2KHR"()
+        vkGetDisplayPlaneCapabilities2KHR = "vkGetDisplayPlaneCapabilities2KHR"()
+        vkGetPhysicalDeviceFeatures2KHR = "vkGetPhysicalDeviceFeatures2KHR"()
+        vkGetPhysicalDeviceProperties2KHR = "vkGetPhysicalDeviceProperties2KHR"()
         vkGetPhysicalDeviceFormatProperties2KHR =
-            caps["vkGetPhysicalDeviceFormatProperties2KHR"] ?: NULL
+            "vkGetPhysicalDeviceFormatProperties2KHR"()
         vkGetPhysicalDeviceImageFormatProperties2KHR =
-            caps["vkGetPhysicalDeviceImageFormatProperties2KHR"] ?: NULL
+            "vkGetPhysicalDeviceImageFormatProperties2KHR"()
         vkGetPhysicalDeviceQueueFamilyProperties2KHR =
-            caps["vkGetPhysicalDeviceQueueFamilyProperties2KHR"] ?: NULL
+            "vkGetPhysicalDeviceQueueFamilyProperties2KHR"()
         vkGetPhysicalDeviceMemoryProperties2KHR =
-            caps["vkGetPhysicalDeviceMemoryProperties2KHR"] ?: NULL
+            "vkGetPhysicalDeviceMemoryProperties2KHR"()
         vkGetPhysicalDeviceSparseImageFormatProperties2KHR =
-            caps["vkGetPhysicalDeviceSparseImageFormatProperties2KHR"] ?: NULL
+            "vkGetPhysicalDeviceSparseImageFormatProperties2KHR"()
         vkGetPhysicalDeviceSurfaceCapabilities2KHR =
-            caps["vkGetPhysicalDeviceSurfaceCapabilities2KHR"] ?: NULL
-        vkGetPhysicalDeviceSurfaceFormats2KHR = caps["vkGetPhysicalDeviceSurfaceFormats2KHR"] ?: NULL
-        vkDestroySurfaceKHR = caps["vkDestroySurfaceKHR"] ?: NULL
-        vkGetPhysicalDeviceSurfaceSupportKHR = caps["vkGetPhysicalDeviceSurfaceSupportKHR"] ?: NULL
+            "vkGetPhysicalDeviceSurfaceCapabilities2KHR"()
+        vkGetPhysicalDeviceSurfaceFormats2KHR = "vkGetPhysicalDeviceSurfaceFormats2KHR"()
+        vkDestroySurfaceKHR = "vkDestroySurfaceKHR"()
+        vkGetPhysicalDeviceSurfaceSupportKHR = "vkGetPhysicalDeviceSurfaceSupportKHR"()
         vkGetPhysicalDeviceSurfaceCapabilitiesKHR =
-            caps["vkGetPhysicalDeviceSurfaceCapabilitiesKHR"] ?: NULL
-        vkGetPhysicalDeviceSurfaceFormatsKHR = caps["vkGetPhysicalDeviceSurfaceFormatsKHR"] ?: NULL
+            "vkGetPhysicalDeviceSurfaceCapabilitiesKHR"()
+        vkGetPhysicalDeviceSurfaceFormatsKHR = "vkGetPhysicalDeviceSurfaceFormatsKHR"()
         vkGetPhysicalDeviceSurfacePresentModesKHR =
-            caps["vkGetPhysicalDeviceSurfacePresentModesKHR"] ?: NULL
-        vkCreateWaylandSurfaceKHR = caps["vkCreateWaylandSurfaceKHR"] ?: NULL
+            "vkGetPhysicalDeviceSurfacePresentModesKHR"()
+        vkCreateWaylandSurfaceKHR = "vkCreateWaylandSurfaceKHR"()
         vkGetPhysicalDeviceWaylandPresentationSupportKHR =
-            caps["vkGetPhysicalDeviceWaylandPresentationSupportKHR"] ?: NULL
-        vkCreateWin32SurfaceKHR = caps["vkCreateWin32SurfaceKHR"] ?: NULL
+            "vkGetPhysicalDeviceWaylandPresentationSupportKHR"()
+        vkCreateWin32SurfaceKHR = "vkCreateWin32SurfaceKHR"()
         vkGetPhysicalDeviceWin32PresentationSupportKHR =
-            caps["vkGetPhysicalDeviceWin32PresentationSupportKHR"] ?: NULL
-        vkCreateXlibSurfaceKHR = caps["vkCreateXlibSurfaceKHR"] ?: NULL
+            "vkGetPhysicalDeviceWin32PresentationSupportKHR"()
+        vkCreateXlibSurfaceKHR = "vkCreateXlibSurfaceKHR"()
         vkGetPhysicalDeviceXlibPresentationSupportKHR =
-            caps["vkGetPhysicalDeviceXlibPresentationSupportKHR"] ?: NULL
-        vkCreateMacOSSurfaceMVK = caps["vkCreateMacOSSurfaceMVK"] ?: NULL
+            "vkGetPhysicalDeviceXlibPresentationSupportKHR"()
+        vkCreateMacOSSurfaceMVK = "vkCreateMacOSSurfaceMVK"()
         vkGetPhysicalDeviceCooperativeMatrixPropertiesNV =
-            caps["vkGetPhysicalDeviceCooperativeMatrixPropertiesNV"] ?: NULL
+            "vkGetPhysicalDeviceCooperativeMatrixPropertiesNV"()
         vkGetPhysicalDeviceSupportedFramebufferMixedSamplesCombinationsNV =
-            caps["vkGetPhysicalDeviceSupportedFramebufferMixedSamplesCombinationsNV"] ?: NULL
+            "vkGetPhysicalDeviceSupportedFramebufferMixedSamplesCombinationsNV"()
         vkGetPhysicalDeviceExternalImageFormatPropertiesNV =
-            caps["vkGetPhysicalDeviceExternalImageFormatPropertiesNV"] ?: NULL
+            "vkGetPhysicalDeviceExternalImageFormatPropertiesNV"()
         vkGetPhysicalDeviceGeneratedCommandsPropertiesNVX =
-            caps["vkGetPhysicalDeviceGeneratedCommandsPropertiesNVX"] ?: NULL
+            "vkGetPhysicalDeviceGeneratedCommandsPropertiesNVX"()
     }
 }
 

@@ -94,10 +94,22 @@ class SubmitInfo(
 
     val type get() = VkStructureType.SUBMIT_INFO
 
+    var commandBuffer: CommandBuffer?
+        get() = commandBuffers?.get(0)
+        set(value) {
+            when (value) {
+                null -> commandBuffers = null
+                else -> when (val bufs = commandBuffers) {
+                    null -> commandBuffers = Array(1) { value!! }
+                    else -> bufs[0] = value
+                }
+            }
+        }
+
     constructor(
         waitSemaphore: VkSemaphore,
         waitDstStageMask: Int,
-        commandBuffer: CommandBuffer?,
+        commandBuffer: CommandBuffer? = null,
         signalSemaphore: VkSemaphore
     ) : this(
         1,

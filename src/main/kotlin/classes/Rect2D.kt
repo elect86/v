@@ -1,5 +1,6 @@
 package classes
 
+import glm_.vec2.Vec2i
 import kool.Ptr
 import org.lwjgl.system.MemoryStack
 import org.lwjgl.vulkan.VkRect2D
@@ -29,10 +30,18 @@ class Rect2D(
     var extent: Extent2D
 ) {
 
+    constructor(size: Vec2i) : this(extent = Extent2D(size))
+
     fun toPtr(ptr: Ptr) {
         offset toPtr ptr
         extent.toPtr(ptr + EXTENT)
     }
+
+    val MemoryStack.native: Ptr
+        get() = ncalloc(ALIGNOF, 1, SIZEOF).also { ptr ->
+            offset.toPtr(ptr + OFFSET)
+            extent.toPtr(ptr + EXTENT)
+        }
 }
 
 fun Array<Rect2D>.native(stack: MemoryStack): Ptr {
