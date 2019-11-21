@@ -2,7 +2,6 @@ package identifiers
 
 import classes.DebugReportCallbackCreateInfo
 import classes.InstanceCreateInfo
-import classes.SurfaceCapabilitiesKHR
 import kool.PointerBuffer
 import kool.Ptr
 import kool.adr
@@ -14,17 +13,16 @@ import org.lwjgl.system.FunctionProvider
 import org.lwjgl.system.JNI.*
 import org.lwjgl.system.MemoryStack.stackPush
 import org.lwjgl.system.MemoryUtil.*
+import org.lwjgl.system.NativeType
+import org.lwjgl.vulkan.EXTDebugReport
+import org.lwjgl.vulkan.VK10.VK_NULL_HANDLE
 import org.lwjgl.vulkan.VK10.VK_SUCCESS
 import org.lwjgl.vulkan.VkExtensionProperties
-import util.PhysicalDevice_Buffer
-import util.longAddress
-import util.nmallocInt
-import util.pointerAddress
-import vkk.VK_CHECK_RESULT
-import vkk.VkResult
+import org.lwjgl.vulkan.VkInstance
+import util.*
+import vkk.*
 import vkk.entities.VkDebugReportCallback
-import vkk.entities.VkSurfaceKHR
-import vkk.stak
+import java.nio.ByteBuffer
 import java.util.*
 
 /** Wraps a Vulkan instance handle. */
@@ -47,12 +45,27 @@ private constructor(handle: Ptr, ci: InstanceCreateInfo) :
     )
 
     // --- [ vkCreateDebugReportCallbackEXT ] ---
-    infix fun createDebugReportCallback(createInfo: DebugReportCallbackCreateInfo): VkDebugReportCallback =
+    infix fun createDebugReportCallbackEXT(createInfo: DebugReportCallbackCreateInfo): VkDebugReportCallback =
         stak { s ->
             VkDebugReportCallback(s.longAddress {
                 VK_CHECK_RESULT(callPPPPI(adr, createInfo.run { s.native }, NULL, it, capabilities.vkCreateDebugReportCallbackEXT))
             })
         }
+
+    // --- [ vkDebugReportMessageEXT ] ---
+    fun debugReportMessageEXT(
+        flags: VkDebugReportFlagsEXT, objectType: VkDebugReportObjectTypeEXT, `object`: Long = VK_NULL_HANDLE,
+        location: Long, messageCode: Int, pLayerPrefix: String, pMessage: String
+    ) = stak { s ->
+        callPJPPPV(
+            adr, flags, objectType.i, `object`, location, messageCode, s.nUtf8(pLayerPrefix),
+            s.nUtf8(pMessage), capabilities.vkCreateDebugReportCallbackEXT
+        )
+    }
+
+    // --- [ vkDestroyDebugReportCallbackEXT ] ---
+    infix fun destroy(debugReportCallback: VkDebugReportCallback) =
+        callPJPV(adr, debugReportCallback.L, NULL, capabilities.vkDestroyDebugReportCallbackEXT)
 
     // --- [ vkEnumeratePhysicalDevices ] ---
     inline fun nEnumeratePhysicalDevices(pPhysicalDeviceCount: Ptr, pPhysicalDevices: Ptr): VkResult =

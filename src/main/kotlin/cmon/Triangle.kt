@@ -38,7 +38,7 @@ fun main() {
     val instance = createInstance(requiredExtensions)
     DebugReportCallback.callback =
         { _, _, _, _, _, _, message: String, _ -> System.err.println("ERROR OCCURED: $message") }
-    val debugCallbackHandle = setupDebugging(instance, VkDebugReport.ERROR_BIT_EXT or VkDebugReport.WARNING_BIT_EXT)
+    val debugCallback = setupDebugging(instance, VkDebugReport.ERROR_BIT_EXT or VkDebugReport.WARNING_BIT_EXT)
     val physicalDevice = instance.enumeratePhysicalDevices[0]
     val (device, queueFamilyIndex, memoryProperties) = createDeviceAndGetGraphicsQueueFamily(physicalDevice)
 
@@ -116,6 +116,8 @@ fun main() {
         if (swapchainRecreator.dirty)
             swapchainRecreator.run()
 
+//        instance.debugReportMessageEXT(0, VkDebugReportObjectTypeEXT.ACCELERATION_STRUCTURE_NV, 0, 0, 0, "layer", "message")
+
         // Create a semaphore to wait for the swapchain to acquire the next image
         val imageAcquiredSemaphore = device.createSemaphore()
 
@@ -152,12 +154,13 @@ fun main() {
         device destroy renderCompleteSemaphore
     }
 
-////    vkDestroyDebugReportCallbackEXT(instance, debugCallbackHandle.L, null)
-//
-////    windowSizeCallback.free()
-////    Callbacks.glfwFreeCallbacks(window.handle.L)
-//    window.destroy()
-//    glfwTerminate()
+    instance destroy debugCallback
+
+    DebugReportCallback.native.free()
+//    windowSizeCallback.free()
+//    Callbacks.glfwFreeCallbacks(window.handle.L)
+    window.destroy()
+    glfwTerminate()
 
     // We don't bother disposing of all Vulkan resources.
     // Let the OS process manager take care of it.
@@ -173,7 +176,7 @@ fun createInstance(requiredExtensions: ArrayList<String>): Instance {
 
 fun setupDebugging(instance: Instance, flags: VkDebugReportFlagsEXT): VkDebugReportCallback {
     val dbgCreateInfo = DebugReportCallbackCreateInfo(flags)
-    return instance createDebugReportCallback dbgCreateInfo
+    return instance createDebugReportCallbackEXT dbgCreateInfo
 }
 
 fun createDeviceAndGetGraphicsQueueFamily(physicalDevice: PhysicalDevice): Triple<Device, Int, PhysicalDeviceMemoryProperties> {
