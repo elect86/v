@@ -21,16 +21,17 @@ import java.nio.ByteBuffer
 import java.nio.LongBuffer
 
 @JvmName("PointerBufferSafe")
-fun MemoryStack.PointerBuffer(strings: Collection<String>?): PointerBuffer? = strings?.let { PointerBuffer(it) }
+fun MemoryStack.PointerBuffer(strings: Collection<String>?): PointerBuffer? =
+    strings?.let { PointerBuffer(it) }
 
 fun MemoryStack.PointerBuffer(strings: Collection<String>): PointerBuffer =
-    PointerBuffer_(strings.size) { i ->
+    PointerBuffer(strings.size) { i ->
         val string = strings.elementAt(i)
         val length = memLengthUTF8(string, true)
         nmalloc(1, length).also { encodeUTF8(string, true, it) }
     }
 
-inline fun MemoryStack.PointerBuffer_(size: Int, init: (Int) -> Ptr) =
+inline fun MemoryStack.PointerBuffer(size: Int, init: (Int) -> Ptr) =
     PointerBuffer(size).apply {
         for (i in 0 until size)
             this[i] = init(i)
